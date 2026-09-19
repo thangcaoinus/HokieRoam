@@ -85,6 +85,9 @@ class PlacementManifest(Contract):
 
 JobKind = Literal["redesign", "reconstruct", "pipeline"]
 JobStatus = Literal["queued", "submitting", "running", "succeeded", "failed", "submission-unknown"]
+# The only artifact names a client may ask for. JobView.artifacts is keyed by these; the internal
+# job record maps them to filenames, so a client-supplied name never reaches the filesystem.
+ArtifactName = Literal["source", "concept", "model"]
 
 
 class JobView(Contract):
@@ -103,3 +106,13 @@ class JobView(Contract):
     warnings: list[str]
     created_at: str
     updated_at: str
+
+
+class HealthView(Contract):
+    """Liveness probe the frontend uses to switch its honesty chip to 'Pipeline API connected'."""
+    schema_version: Literal[1] = 1
+    provider: str
+    # True only when a real paid provider is configured AND keyed. The fixture adapter is
+    # explicitly synthetic, so it reports live=False — never let a fixture read as generation.
+    live: bool
+    submissions_used: int
