@@ -79,27 +79,45 @@ def health(settings: SettingsDep, store: StoreDep) -> HealthView:
 async def create_job(
     settings: SettingsDep,
     pipeline: PipelineDep,
-    image: Annotated[UploadFile, File(description="Source building photo, PNG or JPEG")],
+    image: Annotated[
+        list[UploadFile],
+        File(description="1-4 photos of the SAME building from different angles, PNG or JPEG"),
+    ],
     prompt: Annotated[str, Form(min_length=1, max_length=2000)],
     strength: Annotated[float, Form(ge=0, le=1)],
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=200)],
     kind: Annotated[JobKind, Form()] = "pipeline",
 ) -> JobView:
-    """Accept a source photo and start generation. Returns 202 at once, never the asset.
+    """Accept 1-4 photos of one building and start generation. Returns 202 at once, never the asset.
+
+    Multiple angles matter: Meshy's reconstruction is a sparse-view model, and a single photo
+    yields a flat facade with no depth. It accepts at most four, so more are rejected here rather
+    than silently dropped after the caller has waited for the upload.
 
     ``Idempotency-Key`` becomes the storage ``request_key``, which is UNIQUE: repeating a request
     with the same key returns the same job rather than paying for a second generation.
     """
-    # Read one byte past the cap so an oversized upload is rejected without buffering all of it.
-    data = await image.read(settings.max_image_bytes + 1)
-    if len(data) > settings.max_image_bytes:
-        raise HTTPException(status_code=413, detail="Source image exceeds the configured limit")
-    try:
-        media = image_media(data)
-    except ValueError as exc:
-        raise HTTPException(status_code=415, detail=str(exc)) from exc
+    if not image:
+        raise HTTPException(status_code=422, detail="At least one source photo is required")
+    if len(image) > settings.max_views:
+        raise HTTPException(
+            status_code=422,
+            detail=f"At most {settings.max_views} photos are supported "
+                   f"({len(image)} supplied); Meshy's multi-image reconstruction accepts four.")
 
-    job = pipeline.create(request_key=idempotency_key, kind=kind, image=data, media=media,
+    images: list[tuple[bytes, str]] = []
+    for upload in image:
+        # Read one byte past the cap so an oversized upload is rejected without buffering it all.
+        data = await upload.read(settings.max_image_bytes + 1)
+        if len(data) > settings.max_image_bytes:
+            raise HTTPException(
+                status_code=413, detail="A source image exceeds the configured limit")
+        try:
+            images.append((data, image_media(data)))
+        except ValueError as exc:
+            raise HTTPException(status_code=415, detail=str(exc)) from exc
+
+    job = pipeline.create(request_key=idempotency_key, kind=kind, images=images,
                           prompt=prompt, strength=strength)
     if job["status"] not in TERMINAL_STATUSES:
         pipeline.schedule(job["job_id"])

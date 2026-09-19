@@ -87,7 +87,21 @@ JobKind = Literal["redesign", "reconstruct", "pipeline"]
 JobStatus = Literal["queued", "submitting", "running", "succeeded", "failed", "submission-unknown"]
 # The only artifact names a client may ask for. JobView.artifacts is keyed by these; the internal
 # job record maps them to filenames, so a client-supplied name never reaches the filesystem.
-ArtifactName = Literal["source", "concept", "model"]
+#
+# Meshy's multi-image-to-3d takes 1-4 views of the same building, so a job carries up to four
+# source photos and the four styled concepts derived from them. View 1 is named `source`/`concept`
+# without a suffix so single-view clients keep working unchanged.
+MAX_VIEWS = 4
+ArtifactName = Literal[
+    "source", "source_2", "source_3", "source_4",
+    "concept", "concept_2", "concept_3", "concept_4",
+    "model",
+]
+
+
+def view_artifact(kind: Literal["source", "concept"], index: int) -> str:
+    """Artifact name for view `index` (0-based). View 0 keeps the unsuffixed legacy name."""
+    return kind if index == 0 else f"{kind}_{index + 1}"
 
 
 class JobView(Contract):

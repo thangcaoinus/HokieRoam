@@ -56,7 +56,7 @@ def run(coro):
 
 def test_submit_sends_bearer_data_uri_and_returns_the_task_id():
     handler, calls = recorder(httpx.Response(200, json={"result": "task-abc"}))
-    assert run(provider(handler).submit("redesign", PNG, "scorched", 0.8)) == "task-abc"
+    assert run(provider(handler).submit("redesign", [PNG], "scorched", 0.8)) == "task-abc"
 
     request = calls[0]
     assert str(request.url) == "https://api.meshy.ai/openapi/v1/image-to-image"
@@ -69,20 +69,49 @@ def test_submit_sends_bearer_data_uri_and_returns_the_task_id():
     assert "scorched" in payload["prompt"] and "0.80/1" in payload["prompt"]
 
 
-def test_submit_reconstruct_uses_the_image_to_3d_contract():
+def test_submit_reconstruct_sends_every_view_to_multi_image_to_3d():
     handler, calls = recorder(httpx.Response(200, json={"result": "task-3d"}))
-    assert run(provider(handler).submit("reconstruct", JPEG, "ignored", 0.5)) == "task-3d"
+    views = [JPEG, PNG, JPEG]
+    assert run(provider(handler).submit("reconstruct", views, "ignored", 0.5)) == "task-3d"
 
     payload = json.loads(calls[0].content)
-    assert str(calls[0].url) == "https://api.meshy.ai/openapi/v1/image-to-3d"
-    assert payload["image_url"].startswith("data:image/jpeg;base64,")
+    assert str(calls[0].url) == "https://api.meshy.ai/openapi/v1/multi-image-to-3d"
+    # All three angles must reach the model; one view alone produces a flat facade.
+    assert len(payload["image_urls"]) == 3
+    assert payload["image_urls"][0].startswith("data:image/jpeg;base64,")
+    assert payload["image_urls"][1].startswith("data:image/png;base64,")
     assert payload["ai_model"] == "meshy-6" and payload["target_formats"] == ["glb"]
+    # Without a remesh target Meshy returns its raw mesh; our first live run was 1.75M triangles.
+    assert payload["should_remesh"] is True
+    assert 100 <= payload["target_polycount"] <= 300_000
+
+
+def test_submit_rejects_more_views_than_meshy_accepts():
+    handler, calls = recorder(httpx.Response(200, json={"result": "nope"}))
+    with pytest.raises(ProviderError):
+        run(provider(handler).submit("reconstruct", [PNG] * 5, "x", 0.5))
+    # Fail locally rather than burn a round trip on a request Meshy will reject.
+    assert calls == []
+
+
+def test_submit_rejects_an_empty_view_list():
+    handler, calls = recorder(httpx.Response(200, json={"result": "nope"}))
+    with pytest.raises(ProviderError):
+        run(provider(handler).submit("reconstruct", [], "x", 0.5))
+    assert calls == []
+
+
+def test_redesign_styles_exactly_one_view_at_a_time():
+    handler, calls = recorder(httpx.Response(200, json={"result": "t"}))
+    run(provider(handler).submit("redesign", [PNG, JPEG, PNG], "x", 0.8))
+    # Styled views must stay 1:1 with the photos they came from, so redesign takes the first only.
+    assert len(json.loads(calls[0].content)["reference_image_urls"]) == 1
 
 
 def test_submit_without_an_api_key_never_reaches_the_network():
     handler, calls = recorder(httpx.Response(200, json={"result": "nope"}))
     with pytest.raises(ProviderError):
-        run(provider(handler, api_key="").submit("redesign", PNG, "x", 0.8))
+        run(provider(handler, api_key="").submit("redesign", [PNG], "x", 0.8))
     # The point is not the exception, it is that no request was issued.
     assert calls == []
 
@@ -90,20 +119,20 @@ def test_submit_without_an_api_key_never_reaches_the_network():
 def test_submit_rejection_is_a_provider_error_because_nothing_was_charged():
     handler, _ = recorder(httpx.Response(400, json={"message": "bad request"}))
     with pytest.raises(ProviderError) as caught:
-        run(provider(handler).submit("redesign", PNG, "x", 0.8))
+        run(provider(handler).submit("redesign", [PNG], "x", 0.8))
     assert not isinstance(caught.value, SubmissionUnknown)
 
 
 def test_submit_server_error_is_submission_unknown():
     handler, _ = recorder(httpx.Response(503, text="unavailable"))
     with pytest.raises(SubmissionUnknown):
-        run(provider(handler).submit("redesign", PNG, "x", 0.8))
+        run(provider(handler).submit("redesign", [PNG], "x", 0.8))
 
 
 def test_submit_network_failure_is_submission_unknown():
     handler, _ = recorder(httpx.ConnectError("connection reset"))
     with pytest.raises(SubmissionUnknown):
-        run(provider(handler).submit("reconstruct", PNG, "x", 0.8))
+        run(provider(handler).submit("reconstruct", [PNG], "x", 0.8))
 
 
 @pytest.mark.parametrize("body", [{}, {"result": ""}, {"result": 42}, {"result": "x" * 201}])
@@ -112,7 +141,7 @@ def test_submit_without_a_usable_task_id_is_submission_unknown(body):
     # while we hold no handle on it. Never downgrade this to a plain error.
     handler, _ = recorder(httpx.Response(200, json=body))
     with pytest.raises(SubmissionUnknown):
-        run(provider(handler).submit("redesign", PNG, "x", 0.8))
+        run(provider(handler).submit("redesign", [PNG], "x", 0.8))
 
 
 # -- poll -----------------------------------------------------------------------------------
@@ -167,7 +196,7 @@ def test_poll_encodes_the_task_id_into_a_single_path_segment():
     handler, calls = recorder(httpx.Response(200, json={"status": "PENDING"}))
     run(provider(handler).poll("reconstruct", "../../secret"))
     # A task id is data, not a path. It must not be able to climb the URL.
-    assert "/openapi/v1/image-to-3d/..%2F..%2Fsecret" in str(calls[0].url)
+    assert "/openapi/v1/multi-image-to-3d/..%2F..%2Fsecret" in str(calls[0].url)
 
 
 # -- download -------------------------------------------------------------------------------

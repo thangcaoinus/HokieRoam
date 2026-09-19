@@ -20,6 +20,7 @@ import {
   getJob,
   health,
   isTerminal,
+  MAX_VIEWS,
   pollJob,
   ApiError,
   type JobView,
@@ -201,12 +202,19 @@ function follow(jobId: string) {
  */
 export async function startJob({ regenerate = false } = {}) {
   const s = useStore.getState()
-  const source = s.photos[s.primaryPhoto]
-  if (!source) throw new Error('No source photo')
+  if (!s.photos.length) throw new Error('No source photo')
   useStore.setState({ jobError: null })
 
-  const image = await (await fetch(source)).blob()
-  const fingerprint = await sha256Hex([await image.arrayBuffer(), s.prompt, s.strength.toFixed(3)])
+  // Primary view first, then the other angles. Reconstruction is a sparse-view model: one photo
+  // yields a flat facade, several give the mesh an actual back and sides. Meshy caps this at 4.
+  const ordered = [s.photos[s.primaryPhoto], ...s.photos.filter((_, i) => i !== s.primaryPhoto)]
+    .filter(Boolean)
+    .slice(0, MAX_VIEWS)
+  const images = await Promise.all(ordered.map(async (u) => (await fetch(u)).blob()))
+  const buffers = await Promise.all(images.map((b) => b.arrayBuffer()))
+  // Every view feeds the fingerprint: adding or swapping an angle is a different generation and
+  // must produce a different Idempotency-Key, not silently re-attach to the old job.
+  const fingerprint = await sha256Hex([...buffers, s.prompt, s.strength.toFixed(3)])
 
   const session = readSession()
   let attempt = session?.fingerprint === fingerprint ? session.attempt : 0
@@ -218,16 +226,17 @@ export async function startJob({ regenerate = false } = {}) {
   writeSession({ fingerprint, attempt })
 
   const startedAt = Date.now()
-  s.log(`job › POST /v1/jobs (key ${key.slice(0, 14)}…)`)
+  s.log(`job › POST /v1/jobs · ${images.length} view(s) (key ${key.slice(0, 14)}…)`)
   let job: JobView
   try {
     job = await createJob({
-      image,
+      images,
       prompt: s.prompt,
       strength: s.strength,
       idempotencyKey: key,
       kind: 'pipeline',
-      filename: image.type === 'image/jpeg' ? 'source.jpg' : 'source.png',
+      filenames: images.map((b, i) =>
+        b.type === 'image/jpeg' ? `source-${i + 1}.jpg` : `source-${i + 1}.png`),
     })
   } catch (e) {
     const msg = e instanceof ApiError && e.status === 0

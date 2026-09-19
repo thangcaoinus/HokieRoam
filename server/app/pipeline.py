@@ -27,7 +27,7 @@ from typing import TypeVar
 from app.config import Settings
 from app.geometry.mesh import validate_glb
 from app.providers.base import GenerationProvider, ProviderError, Stage, SubmissionUnknown
-from app.schemas import JobKind, JobView
+from app.schemas import JobKind, JobView, view_artifact
 from app.storage import JobStore, image_media, now
 
 log = logging.getLogger("groundtruth.pipeline")
@@ -40,8 +40,34 @@ STAGE_ORDER: dict[JobKind, tuple[Stage, ...]] = {
     "redesign": ("redesign",),
     "reconstruct": ("reconstruct",),
 }
-# The artifact each stage produces. Presence of this artifact means the stage is already done.
+# The artifact each stage produces. Presence of this artifact means that step is already done.
 STAGE_ARTIFACT: dict[Stage, str] = {"redesign": "concept", "reconstruct": "model"}
+
+
+def step_key(stage: Stage, index: int) -> str:
+    """Per-step key for provider_tasks and submission reservations.
+
+    View 0 keeps the unsuffixed name so jobs created before multi-view resume rather than
+    re-submitting - a re-submission is a second charge.
+    """
+    return stage if index == 0 else f"{stage}_{index + 1}"
+
+
+def steps(job: dict) -> list[tuple[Stage, int]]:
+    """The ordered (stage, view index) work items for a job.
+
+    Redesign runs once per source view, because Meshy's image-to-image styles one image at a time
+    and the styled views must stay 1:1 with the photos they came from. Reconstruct then runs once,
+    consuming every styled view at once.
+    """
+    views = sum(1 for name in job["files"] if name.startswith("source"))
+    plan: list[tuple[Stage, int]] = []
+    for stage in STAGE_ORDER[job["kind"]]:
+        if stage == "redesign":
+            plan.extend((stage, i) for i in range(views))
+        else:
+            plan.append((stage, 0))
+    return plan
 TERMINAL_STATUSES = frozenset({"succeeded", "failed", "submission-unknown"})
 
 RETRY_ATTEMPTS = 4
@@ -86,7 +112,7 @@ class Pipeline:
 
     # -- creation ---------------------------------------------------------------------------
 
-    def create(self, *, request_key: str, kind: JobKind, image: bytes, media: str,
+    def create(self, *, request_key: str, kind: JobKind, images: list[tuple[bytes, str]],
                prompt: str, strength: float) -> dict:
         """Persist a new job, or return the existing one for a repeated Idempotency-Key.
 
@@ -99,10 +125,14 @@ class Pipeline:
             return existing
 
         job_id = uuid.uuid4().hex
-        filename = "source.png" if media == "image/png" else "source.jpg"
         # Bytes before the row: an orphaned file is harmless, a row pointing at a missing file is
         # not, and a crash between the two must not leave a job that can never be served.
-        self.store.write(job_id, filename, image)
+        files: dict[str, str] = {}
+        for i, (data, media) in enumerate(images):
+            name = view_artifact("source", i)
+            filename = f"{name}.png" if media == "image/png" else f"{name}.jpg"
+            self.store.write(job_id, filename, data)
+            files[name] = filename
         timestamp = now()
         job = {
             "job_id": job_id,
@@ -113,7 +143,7 @@ class Pipeline:
             "provider_task_id": None,
             "provider_tasks": {},
             "progress": None,
-            "files": {"source": filename},
+            "files": files,
             "placement": None,
             "error": None,
             "warnings": [FIXTURE_WARNING] if self.provider.name == "fixture" else [],
@@ -121,6 +151,7 @@ class Pipeline:
             "settings": {
                 "prompt": prompt,
                 "strength": strength,
+                "views": len(images),
                 "provider": self.provider.name,
                 "image_model": self.settings.image_model,
                 "mesh_model": self.settings.mesh_model,
@@ -133,7 +164,8 @@ class Pipeline:
         except sqlite3.IntegrityError:
             # Lost a race on the same key; the winner's job is the one that counts.
             return self.store.find(request_key) or job
-        log.info("job %s created (kind=%s provider=%s)", job_id, kind, self.provider.name)
+        log.info("job %s created (kind=%s provider=%s views=%d)", job_id, kind,
+                 self.provider.name, len(images))
         return job
 
     # -- scheduling -------------------------------------------------------------------------
@@ -172,14 +204,17 @@ class Pipeline:
             job = self.store.get(job_id)
             if job is None:
                 return
-            for stage in STAGE_ORDER[job["kind"]]:
+            for stage, index in steps(job):
                 job = self.store.get(job_id)
                 if job is None or job["status"] in TERMINAL_STATUSES:
                     return
-                if STAGE_ARTIFACT[stage] in job["files"]:
-                    log.info("job %s stage %s already delivered; skipping", job_id, stage)
+                produced = (view_artifact("concept", index) if stage == "redesign"
+                            else STAGE_ARTIFACT[stage])
+                if produced in job["files"]:
+                    log.info("job %s step %s already delivered; skipping",
+                             job_id, step_key(stage, index))
                     continue
-                job = await self.run_stage(job, stage)
+                job = await self.run_step(job, stage, index)
                 if job["status"] in TERMINAL_STATUSES:
                     return
             # Generation is finished. A job that produced a mesh is now waiting on an explicit
@@ -196,24 +231,37 @@ class Pipeline:
         finally:
             self.tasks.pop(job_id, None)
 
-    async def run_stage(self, job: dict, stage: Stage) -> dict:
-        # Reconstruct prefers the redesigned concept. A kind="reconstruct" job has none, so the
-        # original photo goes straight to image-to-3D.
-        name = "concept" if stage == "reconstruct" and "concept" in job["files"] else "source"
-        image = self.store.artifact(job, name).read_bytes()
-        job = await self.ensure_submitted(job, stage, image)
+    def view_names(self, job: dict, kind: str) -> list[str]:
+        """Stored artifact names for every view of `kind`, in view order."""
+        names = [view_artifact(kind, i) for i in range(self.settings.max_views)]
+        return [n for n in names if n in job["files"]]
+
+    async def run_step(self, job: dict, stage: Stage, index: int) -> dict:
+        if stage == "redesign":
+            # One photo in, one styled view out, so the set stays 1:1 with the source angles.
+            names = [view_artifact("source", index)]
+        else:
+            # Every styled view at once. A kind="reconstruct" job was never redesigned, so its
+            # original photos go straight to multi-image-to-3d.
+            names = self.view_names(job, "concept") or self.view_names(job, "source")
+        images = [self.store.artifact(job, name).read_bytes() for name in names]
+        job = await self.ensure_submitted(job, stage, index, images)
         if job["status"] in TERMINAL_STATUSES:
             return job
-        return await self.collect(job, stage, job["provider_tasks"][stage])
+        return await self.collect(job, stage, index,
+                                  job["provider_tasks"][step_key(stage, index)])
 
-    async def ensure_submitted(self, job: dict, stage: Stage, image: bytes) -> dict:
+    async def ensure_submitted(
+        self, job: dict, stage: Stage, index: int, images: list[bytes]
+    ) -> dict:
         job_id = job["job_id"]
-        if job["provider_tasks"].get(stage):
-            log.info("job %s stage %s resuming task %s", job_id, stage,
-                     job["provider_tasks"][stage])
+        task = step_key(stage, index)
+        if job["provider_tasks"].get(task):
+            log.info("job %s step %s resuming task %s", job_id, task,
+                     job["provider_tasks"][task])
             return job
 
-        key = f"{job_id}:{stage}"
+        key = f"{job_id}:{task}"
         if self.store.has_submission(key):
             # We reserved this key on an earlier run and never recorded a task id, so the provider
             # may have accepted and billed the request before the process died. Resubmitting could
@@ -230,19 +278,20 @@ class Pipeline:
         job = self.store.update(job_id, status="submitting", stage=stage)
         try:
             task_id = await self.provider.submit(
-                stage, image, job["settings"]["prompt"], job["settings"]["strength"])
+                stage, images, job["settings"]["prompt"], job["settings"]["strength"])
         except SubmissionUnknown as exc:
             # Checked before ProviderError on purpose: SubmissionUnknown is a subclass.
             return self.store.update(job_id, status="submission-unknown", error=str(exc))
         except ProviderError as exc:
             return self.store.update(job_id, status="failed", error=str(exc))
 
-        log.info("job %s stage %s submitted as %s", job_id, stage, task_id)
+        log.info("job %s step %s submitted as %s (%d view(s))", job_id, task, task_id,
+                 len(images))
         return self.store.update(
             job_id, status="running", provider_task_id=task_id,
-            provider_tasks={**job["provider_tasks"], stage: task_id}, progress=0)
+            provider_tasks={**job["provider_tasks"], task: task_id}, progress=0)
 
-    async def collect(self, job: dict, stage: Stage, task_id: str) -> dict:
+    async def collect(self, job: dict, stage: Stage, index: int, task_id: str) -> dict:
         """Poll one remote task to completion, then download and store what it produced."""
         job_id = job["job_id"]
         while True:
@@ -263,14 +312,14 @@ class Pipeline:
                 error=f"Remote {stage} task reported success without an artifact")
 
         data = await self.retrying(lambda: self.provider.download(snapshot.output_url))
-        name, filename = self.accept(stage, data)
+        name, filename = self.accept(stage, index, data)
         self.store.write(job_id, filename, data)
         log.info("job %s stored %s (%d bytes)", job_id, name, len(data))
         return self.store.update(
             job_id, files={**job["files"], name: filename}, progress=100,
             provider_task_id=None)
 
-    def accept(self, stage: Stage, data: bytes) -> tuple[str, str]:
+    def accept(self, stage: Stage, index: int, data: bytes) -> tuple[str, str]:
         """Validate a downloaded artifact before storing it.
 
         A provider is not trusted to return what it promised, and these bytes are later served to
@@ -280,7 +329,8 @@ class Pipeline:
             if len(data) > self.settings.max_image_bytes:
                 raise ValueError("Generated image exceeds the configured size limit")
             media = image_media(data)
-            return "concept", "concept.png" if media == "image/png" else "concept.jpg"
+            name = view_artifact("concept", index)
+            return name, f"{name}.png" if media == "image/png" else f"{name}.jpg"
         if len(data) > self.settings.max_asset_bytes:
             raise ValueError("Generated asset exceeds the configured size limit")
         validate_glb(data)

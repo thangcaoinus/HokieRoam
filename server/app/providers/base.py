@@ -23,7 +23,11 @@ class TaskSnapshot:
 class GenerationProvider(Protocol):
     name: str
 
-    async def submit(self, stage: Stage, image: bytes, prompt: str, strength: float) -> str: ...
+    # `images` is 1-4 views of the same building. Redesign styles one view at a time, so it always
+    # receives exactly one; reconstruct receives every styled view at once.
+    async def submit(
+        self, stage: Stage, images: list[bytes], prompt: str, strength: float
+    ) -> str: ...
 
     async def poll(self, stage: Stage, task_id: str) -> TaskSnapshot: ...
 

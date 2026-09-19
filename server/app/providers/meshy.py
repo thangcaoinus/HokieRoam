@@ -12,7 +12,10 @@ import httpx
 from app.config import Settings
 from app.providers.base import ProviderError, Stage, SubmissionUnknown, TaskSnapshot
 
-ENDPOINTS = {"redesign": "image-to-image", "reconstruct": "image-to-3d"}
+# Reconstruct uses multi-image-to-3d, which accepts 1-4 views of the same object and therefore
+# covers the single-view case too. One photo yields a flat facade with no depth; several views from
+# different angles are what give the mesh an actual back and sides.
+ENDPOINTS = {"redesign": "image-to-image", "reconstruct": "multi-image-to-3d"}
 
 
 class MeshyProvider:
@@ -26,16 +29,30 @@ class MeshyProvider:
     def headers(self):
         return {"Authorization": f"Bearer {self.settings.api_key}"}
 
-    async def submit(self, stage: Stage, image: bytes, prompt: str, strength: float) -> str:
+    @staticmethod
+    def data_uri(image: bytes) -> str:
+        media = "image/png" if image.startswith(b"\x89PNG") else "image/jpeg"
+        return f"data:{media};base64,{base64.b64encode(image).decode()}"
+
+    async def submit(
+        self, stage: Stage, images: list[bytes], prompt: str, strength: float
+    ) -> str:
         if not self.settings.api_key:
             raise ProviderError("Set MESHY_API_KEY on the backend to enable generation")
-        media = "image/png" if image.startswith(b"\x89PNG") else "image/jpeg"
-        uri = f"data:{media};base64,{base64.b64encode(image).decode()}"
+        if not images:
+            raise ProviderError("At least one source image is required")
+        if len(images) > self.settings.max_views:
+            # Meshy rejects more than four; fail here rather than let it burn a round trip.
+            raise ProviderError(
+                f"multi-image-to-3d accepts at most {self.settings.max_views} views")
+        uris = [self.data_uri(image) for image in images]
         if stage == "redesign":
+            # One view at a time: the styled result must stay 1:1 with the photo it came from,
+            # so the reconstruct stage can feed Meshy a consistent set of angles.
             # Meshy has no numeric strength parameter: preserve the user's intent in text.
             payload = {
                 "ai_model": self.settings.image_model,
-                "reference_image_urls": [uri],
+                "reference_image_urls": uris[:1],
                 "prompt": (
                     f"{prompt}\nRequested style intensity: {strength:.2f}/1. "
                     "Preserve building silhouette, perspective, and visible structural layout."
@@ -43,9 +60,13 @@ class MeshyProvider:
             }
         else:
             payload = {
-                "image_url": uri, "ai_model": self.settings.mesh_model,
+                # 1-4 views of the same building. One view produces a flat facade with no depth.
+                "image_urls": uris, "ai_model": self.settings.mesh_model,
                 "should_texture": True, "enable_pbr": True,
                 "texture_resolution": "2k", "target_formats": ["glb"],
+                # Without this Meshy returns its raw mesh - our first run was 1.75M triangles and
+                # 62 MB, far too heavy to load in a browser demo.
+                "should_remesh": True, "target_polycount": self.settings.target_polycount,
             }
         try:
             response = await self.client.post(

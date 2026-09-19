@@ -26,7 +26,11 @@ class FixtureProvider:
     def __init__(self, delay_seconds: float = 0.0):
         self.delay_seconds = max(0.0, delay_seconds)
 
-    async def submit(self, stage: Stage, image: bytes, prompt: str, strength: float) -> str:
+    async def submit(
+        self, stage: Stage, images: list[bytes], prompt: str, strength: float
+    ) -> str:
+        if not images:
+            raise ProviderError("At least one source image is required")
         return f"fixture-{stage}-{time.time():.3f}-{uuid.uuid4().hex[:8]}"
 
     async def poll(self, stage: Stage, task_id: str) -> TaskSnapshot:

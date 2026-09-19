@@ -70,7 +70,20 @@ export type JobStatus =
   | 'failed'
   | 'submission-unknown'
 export type JobStage = 'redesign' | 'reconstruct' | 'fit' | 'complete'
-export type ArtifactName = 'source' | 'concept' | 'model'
+/**
+ * Meshy's reconstruction is a sparse-view model taking 1-4 views of the same building. A job
+ * therefore carries up to four source photos and the four styled concepts derived from them.
+ * View 1 keeps the unsuffixed name so single-view callers are unaffected.
+ */
+export const MAX_VIEWS = 4
+export type ArtifactName =
+  | 'source' | 'source_2' | 'source_3' | 'source_4'
+  | 'concept' | 'concept_2' | 'concept_3' | 'concept_4'
+  | 'model'
+
+/** Artifact name for view `index` (0-based). View 0 keeps the unsuffixed legacy name. */
+export const viewArtifact = (kind: 'source' | 'concept', index: number): ArtifactName =>
+  (index === 0 ? kind : `${kind}_${index + 1}`) as ArtifactName
 
 export type UpAxis = 'Y' | 'Z'
 export type ProvenanceSource = 'county-gis' | 'osm' | 'user-provided' | 'synthetic'
@@ -248,7 +261,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const health = (signal?: AbortSignal) => request<HealthView>('/v1/health', { signal })
 
 export interface CreateJobInput {
-  image: Blob
+  /**
+   * 1-4 photos of the SAME building from different angles. One photo yields a flat facade with no
+   * depth - the model infers volume from the spread of views. The server rejects more than
+   * MAX_VIEWS rather than silently dropping any.
+   */
+  images: Blob[]
   prompt: string
   /** 0..1. Meshy has no numeric strength knob; the server folds it into the prompt text. */
   strength: number
@@ -258,14 +276,22 @@ export interface CreateJobInput {
    */
   idempotencyKey: string
   kind?: JobKind
-  filename?: string
+  /** Optional per-image filenames, positionally matched to `images`. */
+  filenames?: string[]
   signal?: AbortSignal
 }
 
 /** Start a job. Resolves with a 202 JobView as soon as the server has persisted it. */
 export function createJob(input: CreateJobInput): Promise<JobView> {
+  if (input.images.length < 1) throw new ApiError(0, 'At least one photo is required')
+  if (input.images.length > MAX_VIEWS) {
+    throw new ApiError(0, `At most ${MAX_VIEWS} photos are supported (Meshy's limit)`)
+  }
   const form = new FormData()
-  form.append('image', input.image, input.filename ?? 'source.png')
+  // Repeated `image` parts, in view order; the server maps them to source, source_2, ...
+  input.images.forEach((blob, i) => {
+    form.append('image', blob, input.filenames?.[i] ?? `source-${i + 1}.png`)
+  })
   form.append('prompt', input.prompt)
   form.append('strength', String(input.strength))
   form.append('kind', input.kind ?? 'pipeline')
