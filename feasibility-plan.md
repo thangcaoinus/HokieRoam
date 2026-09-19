@@ -1,8 +1,28 @@
 # Feasibility and implementation plan
 
-Review of `spec.md`, 2026-09-19. This is a planning artifact, not an implementation. The repository currently contains the specification and a minimal README; there is no existing pipeline, application, test suite, or integration to build on. Building choice, photos, team size, available hours, API access, and the detailed sponsor integration contract remain unanswered.
+**Deadline update:** the user confirmed about **16 elapsed hours remain**, with **AI doing most of the implementation**. Follow the [active AI-assisted build plan](implementation-plan.md), targeting the automated local pipeline by hour 8 and feature freeze at hour 12. Research and extended architecture are retained in [technical-reference.md](technical-reference.md). The mathematical contracts below remain reference material, not a requirement to implement every method during the event.
 
-**Recommendation:** build one complete, inspectable exterior-building demo around a verified real footprint and a real generated GLB. Make coordinate conversion, fitting, diagnostics, transform export, and exterior navigation dependable. Treat generated geometry as an approximation, expose uncertainty, and retain a cached successful generation for judging. General arbitrary-building reconstruction and automatic world integration are not established by this specification.
+Review of `spec.md`, 2026-09-19, updated after reading the supplied 90-page opening ceremony PDF. This is a planning artifact, not an implementation. There is no existing pipeline, application, test suite, or integration to build on. Building choice, photos, team size, available hours, API access, and the detailed sponsor integration contract remain unanswered.
+
+**Recommendation:** build one complete, inspectable building-placement demo around a verified real footprint and a real generated GLB. Prioritize coordinate conversion, fitting, diagnostics, transform export, and the actual Procedura/Scorched Nebraska handoff. Exterior character navigation is a lower-priority addition from our specification. Treat generated geometry as an approximation, expose uncertainty, and retain a cached successful generation for judging. General arbitrary-building reconstruction and working world integration still require evidence.
+
+## Opening ceremony evidence and changes to the plan
+
+The supplied [opening ceremony deck](</home/thangcao/VTHax14/VTHacks 14 Opening Ceremony.pdf>) contains the detailed sponsor brief on PDF pages 55–59. Those pages are embedded images, so text extraction alone misses them; they were read from rendered pages. Page references below are PDF page numbers.
+
+| Pages and slide heading | What the slides establish | Planning consequence |
+| --- | --- | --- |
+| 55, “What Is Procedura?” | The described workflow assigns address/authoritative-footprint resolution, generation coordination, provenance, and reproducible map placement to Procedura | First establish which services the sponsor actually provides and which the team must implement; retain county GIS and standalone orchestration as fallback adapters |
+| 56, “What Is Scorched Nebraska?” | The redesigned building is intended to become part of the live game world, with its mesh matching the real footprint | Treat sponsor handoff as a core deliverable; a separate viewer demonstrates only part of the intended result |
+| 57, “Photo to Map-Ready 3D Building” | Address + photos + prompt → redesigned image → mesh → real-world placement; core outcomes are position, scale, rotation, and ground alignment | This is the main demonstration sequence |
+| 58, “Automatic Placement and Fitting” | Normalize units, axes, orientation, and pivot; center/ground; test likely rotations; prefer uniform scaling; allow limited non-uniform scaling; validate footprint overlap and nearby collisions; store a reproducible transform; send uncertainty to manual review | The plan's review path is explicitly supported. Neither the exact OBB algorithm nor particular numerical thresholds are mandated |
+| 55–59, Procedura section | No Three.js, WASD, capsule controller, or chase-camera requirement is stated | Keep these as local-spec enhancements after core placement and integration. “Nearby collisions” here does not by itself require a playable character |
+| 11–12, “Submission Guidelines” and “Sunday Morning” | Submit by 8:00 AM Sunday September 20; judging begins 9:00 AM in NCB; at most four hackers and three sponsorship tracks | The original specification's 9:00 AM time is supported by the deck. Plan to be ready by 9:00 AM unless a newer organizer announcement supersedes it |
+| 6, overnight access | Buildings must be vacated before 10:30 PM each night | Include workspace relocation in the remaining-hours estimate |
+
+The slides describe intended platform responsibilities; they do **not** demonstrate accessible APIs, supply credentials, define bucket identifiers, specify matrix serialization, or prove automatic generation quality. Those integration questions remain open. Their allowance for manual review does not remove the need to demonstrate successful automatic placement on a suitable example.
+
+For optional tracks, pages 48–51 specify a standalone **HokieAI** experience with 2–3 questions and a personal result, no login to the main hack, and a live social post. Page 50 lists a 10% score bonus for a LinkedIn post tagging Cloudforce and Virginia Tech. Pages 68–69 specify a **Databricks-backed AI agent** for student experience, with a registration/participant-agreement survey; the smart-campus option identifies operational inefficiencies and proposes actionable improvements. These are concrete additional obligations, not merely different names for the 3D viewer. No posts, registrations, or agreements were submitted during this review.
 
 ## 1. Problems to resolve first
 
@@ -12,7 +32,7 @@ Review of `spec.md`, 2026-09-19. This is a planning artifact, not an implementat
 | P0 | No selected building, usable photos, or actual generation result | Geometry quality is the largest untested dependency | Select a detached, mostly rectangular building with visible corners; generate and download a textured GLB immediately |
 | P0 | “Retaining architectural geometry” is stronger than the proposed inputs support | Image editing can alter silhouettes; single-image generation invents unobserved structure | Promise recognizable style transfer and measured plan alignment; report height/front/hidden geometry as inferred unless independently established |
 | P0 | Bounding-box fit is described as footprint containment | Concavities, courtyards, wings, and holes invalidate that implication | Use the box to initialize; validate the transformed polygon against the actual footprint |
-| P0 | Schedule and submission information conflict | The team can miss submission or prepare the wrong demo length | Use 8:00 AM ET Sunday as the conservative submission cutoff; verify the live organizer announcement |
+| P0 | Opening slides and public web schedules conflict | The team can miss submission or arrive late for judging | Submit by 8:00 AM Sunday and be ready in NCB by 9:00 AM per slides 11–12; check newer organizer announcements |
 | P1 | A geographic address does not identify exactly one building polygon | The model can be accurately fitted to the wrong building | Show candidate outlines and source IDs; require selection when ambiguous |
 | P1 | Base footprint, roof outline, parcel boundary, and visible silhouette are conflated | Metrics and collisions can disagree even when each calculation is correct | Keep these geometries separate and label which one is being fitted |
 | P1 | Height, vertical datum, and terrain are unspecified | A plan fit can still produce an implausible height or floating building | Use flat terrain for the demo; obtain a trusted height if available, otherwise disclose inferred height |
@@ -21,7 +41,7 @@ Review of `spec.md`, 2026-09-19. This is a planning artifact, not an implementat
 | P1 | Player collision checks only a point and bounding box | The capsule clips into walls or tunnels through them | Use shape-aware, swept collision against a conservative building obstacle |
 | P2 | Optional tracks add separate products and infrastructure | They consume the time needed to finish the main pipeline | Defer until the core submission, demo, and sponsor handoff work |
 
-The official [VTHacks guide](https://vthacks.com/guide) confirms the Procedura photo/address challenge, but does not define its API. It gives three minutes to present and one minute for questions. [Devpost](https://vthacks-14.devpost.com/) lists judging from 10:30 AM–1:00 PM, an 8:00 AM submission requirement, and a conflicting 10:00 AM deadline banner. The specification's 9:00 AM/3–5-minute wording is therefore unsafe to rely on. The detailed sponsor requirements may exist outside these public pages.
+The official [VTHacks guide](https://vthacks.com/guide) gives three minutes to present and one minute for questions. [Devpost](https://vthacks-14.devpost.com/) lists judging from 10:30 AM–1:00 PM, an 8:00 AM submission requirement, and a conflicting 10:00 AM deadline banner. The supplied opening slides independently support 8:00 AM submission and 9:00 AM judging, correcting the earlier concern that the specification's 9:00 AM time lacked support. They do not state a general presentation duration. Keep a three-minute core presentation and follow the latest organizer announcement for timing.
 
 ## 2. What is feasible
 
@@ -32,7 +52,7 @@ The official [VTHacks guide](https://vthacks.com/guide) confirms the Procedura p
 | Generate a textured 3D asset | API capability exists; building quality is unverified | One provider, one successful building, cached result plus resumable fresh jobs |
 | Normalize, fit, score, and export | Deterministic engineering work | Uniform fit first; concave failures reported honestly |
 | Display footprint, raw/fitted model, and matrix | Straightforward once the spatial contract is fixed | One local scene, meter grid, north arrow, diagnostics |
-| Walk around the building | Feasible | Flat ground, opaque building shell, exterior only |
+| Walk around the building | Feasible; not stated as a Procedura slide requirement | Optional flat-ground exterior controller after core integration |
 | Walk through rooms, doors, or stairs | Not supported by the proposed geometry/collision model | Defer; generated exterior meshes do not establish navigable interiors |
 | Persist provenance and reload the same placement | Feasible locally | Job record, copied artifacts, hashes, exact transform and input snapshots |
 | Register/import into sponsor world | Unknown until contract and access are obtained | Adapter with explicit pending/failed/confirmed state |
@@ -405,17 +425,17 @@ The 3–5-minute live generation promise should become: a fresh job can be start
 
 | Stage | Work and evidence | Rough effort, assuming access already works |
 | --- | --- | --- |
-| 0 | Confirm sponsor contract, sample building, GIS query, API credits; start a real generation | 1–2 person-hours |
+| 0 | Establish which Procedura services are provided; confirm contract, sample building, footprint access, API credits; start a real generation | 1–2 person-hours |
 | 1 | Fix coordinate/manifest contract; implement and verify normalization, uniform fitting, polygon metrics, export on synthetic cases | 3–5 person-hours |
 | 2 | Load actual GLB and footprint; display raw/fitted views, matrix, metrics, and manual review controls | 2–3 person-hours |
 | 3 | Connect image edit → 3D job, persist inputs/results, handle failures/reload, cache assets | 2–4 person-hours |
-| 4 | Add exterior capsule movement, static collision proxy, camera, reset | 1–2 person-hours |
-| 5 | Implement sponsor import/registration against the confirmed contract; demonstrate persisted reload | 1–3 person-hours if simple; otherwise unbounded dependency |
+| 4 | Implement sponsor import/registration against the confirmed contract; demonstrate persisted reload | 1–3 person-hours if simple; otherwise unbounded dependency |
+| 5, optional | Add exterior capsule movement, static collision proxy, camera, reset | 1–2 person-hours |
 | 6 | Verify real sample and fresh reload, submission links, offline fallback, rehearsed presentation | 2–3 person-hours |
 
-Total is roughly **12–22 person-hours**, excluding blocked access, poor generation results, and an unfamiliar sponsor SDK. This is an estimate, not a guarantee. Do not assume several contributors can compress all steps: generation quality and the coordinate/export contract are on the critical path. While a provider job is pending, work on synthetic fitting and the viewer.
+Earlier estimates of **11–20** and then **16–26 person-hours** described broader implementations and no longer control execution. The [active 16-hour AI-assisted schedule](implementation-plan.md#3-the-16-hour-execution-schedule) budgets elapsed time for AI-generated code, verification, external generation, and sponsor access. It retains a small persisted job flow while deferring separate worker infrastructure and advanced reconstruction. Generation quality and export correctness remain critical; build and check the viewer while the real asset generates.
 
-If only 6–10 productive hours remain, prioritize one real cached generated GLB, a verified footprint, uniform placement, exported matrix, diagnostics, and exterior navigation. Restrict live generation to the adapter that already passed. If less than six hours remain, a complete live ingestion-to-world system from this empty repository is not a credible commitment; demonstrate the deterministic fitting path and state the missing stages.
+If only 6–10 productive hours remain, prioritize one real cached generated GLB, a verified footprint, uniform placement, exported matrix, diagnostics, and sponsor handoff. Restrict live generation to the adapter that already passed; defer custom character navigation. If less than six hours remain, a complete live ingestion-to-world system from this empty repository is not a credible commitment; demonstrate the deterministic fitting path and state the missing stages.
 
 Freeze risky features at least two hours before the conservative submission deadline. Choose a second already-verified sample only after the first round-trip works. Defer freeform global search, automatic terrain, multi-building streaming, interiors, sophisticated non-uniform optimization, energy calculations, Databricks infrastructure, and the side app.
 
@@ -455,14 +475,14 @@ Do not spend time on tests that merely restate constants. Concentrate on coordin
 
 ## 10. Three-minute demo and remaining decisions
 
-Suggested presentation: 20 seconds for the problem and real photo; 30 seconds for the concept/actual generated asset; 60 seconds for automatic fitting with visible footprint, dimensions, matrix, and uncertainty; 35 seconds for navigation; 25 seconds for exported/reloaded placement and any confirmed sponsor integration; 10 seconds to state the completion boundary. Reserve the separate question minute. Preload/copy artifacts and prepare a local fallback before judging.
+Suggested presentation: 20 seconds for the problem and real photo; 30 seconds for the concept/actual generated asset; 60 seconds for automatic fitting with visible footprint, dimensions, and matrix; 45 seconds for exported/reloaded placement and confirmed sponsor integration; 15 seconds for an uncertain fit and the review path; 10 seconds to state the completion boundary. Reserve the separate question minute. Navigation can be shown if it fits within this sequence. Preload/copy artifacts and prepare a local fallback before judging.
 
 The decisions still needed from the team are concrete:
 
-- Target building and source photographs; whether manual selection/front marking is acceptable for ambiguous inputs.
+- Target building and source photographs; exact review controls for ambiguous identity or facing. The sponsor slides explicitly allow manual review.
 - Official Procedura contract and what judges count as world integration, including bucket semantics, file format, coordinate basis, and material/geometry limits.
 - API credentials/credit allowance, team size, and actual remaining productive hours.
 - Whether the target is strict structural containment, visual roof-outline matching, or approximate occupied-area agreement; one metric cannot silently stand in for all three.
-- Whether height must be measured and whether exterior-only navigation satisfies the intended demo.
+- Whether height must be measured, and whether the team still wants custom exterior navigation beyond the sponsor slide requirements.
 
-Until answered, this plan assumes one verified building, flat terrain, exterior navigation, uniform scale, one generation provider, review controls, and a cached genuine generated asset. The first implementation milestone should be the real-photo/real-footprint/real-GLB feasibility check plus a proven transform round-trip—not optional-track expansion.
+Until answered, this plan assumes one verified building, flat terrain, uniform scale, one generation provider, review controls, and a cached genuine generated asset. Exterior navigation remains optional. The first implementation milestone is the real-photo/real-footprint/real-GLB feasibility check plus a proven transform round-trip and an established sponsor handoff contract.
