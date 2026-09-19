@@ -1,7 +1,7 @@
 import numpy as np
 from pyproj import Transformer
 
-from app.schemas import LocalFrame, Polygon2D, ProjectRequest
+from app.schemas import Polygon2D, ProjectRequest
 
 
 def project_polygon(request: ProjectRequest) -> Polygon2D:

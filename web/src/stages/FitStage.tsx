@@ -91,7 +91,7 @@ export default function FitStage() {
       () => s.log(`fit › Δθ=${fit.deltaThetaDeg.toFixed(2)}° · best k=${fit.chosen.k} IoU ${(fit.iou * 100).toFixed(1)}%`),
       () => s.log(`fit › scale (${fit.scale.sx.toFixed(3)}, ${fit.scale.sy.toFixed(3)}, ${fit.scale.sz.toFixed(3)}) ${fit.scale.mode}`),
       () => s.log(`fit › ${fit.collisions.length ? fit.collisions.length + ' parcel collision(s)' : 'no parcel collisions'}`, fit.collisions.length ? 'warn' : 'info'),
-      () => s.log(`fit › transform exported · confidence ${(fit.confidence * 100).toFixed(0)}%`, 'ok'),
+              () => s.log(`fit › preview transform exported · confidence ${(fit.confidence * 100).toFixed(0)}%`, 'ok'),
     ]
     let last = -1
     const tick = () => {
@@ -130,7 +130,7 @@ export default function FitStage() {
       <div className="row wrap" style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
           <h1 className="h1">Snap it to the <em>map</em>.</h1>
-          <p className="lede" style={{ marginBottom: 22 }}>No manual modeling. The solver normalizes, grounds, orients and scales the mesh onto the authoritative footprint, then serializes a reproducible transform.</p>
+          <p className="lede" style={{ marginBottom: 22 }}>Offline preview only. The browser estimates a fit for the simulation; the server placement manifest is authoritative for a real job.</p>
         </div>
         <button className="btn primary lg" onClick={run} disabled={step >= 0 && step < 7} style={{ marginBottom: 24 }}>
           <Play size={16} /> {fit ? 'Re-run solver' : 'Run alignment solver'}

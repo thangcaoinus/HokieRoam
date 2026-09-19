@@ -28,7 +28,7 @@ Be precise about this — the two halves have never talked to each other.
 | Area | State |
 | --- | --- |
 | `web/` | Complete 5-stage UI. `npm run build` passes. Runs the **entire pipeline standalone in simulation mode** when `VITE_API_BASE` is unset. |
-| `server/` | Library only, no HTTP surface. `config.py`, `schemas.py`, `storage.py`, `geometry/`, `providers/` import cleanly. **No `app/main.py`, no routes, no orchestration/polling loop, no `tests/`** — `pyproject.toml` points `testpaths` at a directory that does not exist. |
+| `server/` | Library only, no HTTP surface. `config.py`, `schemas.py`, `storage.py`, `geometry/`, `providers/` import cleanly. **No `app/main.py`, routes, or orchestration/polling loop.** `tests/test_fit.py` covers the four required geometry/export regressions. |
 | Integration | Frontend and backend describe **incompatible contracts** (see below). Nothing is wired. |
 | Assets | No `samples/`. No real generated GLB, no cached demo artifacts anywhere in the repo. |
 
@@ -50,7 +50,7 @@ local simulation.
 ### server (run from `server/`)
 
 ```bash
-.venv/bin/python -m pytest                              # testpaths=tests (dir does not exist yet)
+.venv/bin/python -m pytest                              # runs server/tests
 .venv/bin/python -m pytest tests/test_fit.py::test_name # single test
 .venv/bin/ruff check app                                # E,F,I · line-length 100
 PYTHONPATH=. .venv/bin/python -c "from app.geometry.fit import fit_glb"   # import smoke check
@@ -93,9 +93,9 @@ Scene frame is **X = East, Y = Up, Z = South**, meters, right-handed. Plan coord
 | Composition | `M = T_target · R_y(θ) · S · T_ground · R_align · N` | `T(c) · yaw(β) · diag(s) · K`, where `K = yaw(−θ_src) · T(−c_src.x, −base, +c_src.y) · N` |
 
 `feasibility-plan.md` §8 requires that **all authoritative fit results come from one implementation**.
-Today only the frontend engine ships. Do not silently "improve" one of them: if you change acceptance
-rules, matrix composition, or the proxy definition, declare which engine is authoritative and make the
-other defer to it or delete it.
+`server/app/geometry/fit.py` is authoritative: it emits the versioned `PlacementManifest`, validates the
+actual polygon and neighbor overlap, and uses uniform scale. The browser solver remains a clearly labelled
+offline/simulation preview only; it must not certify or overwrite a Pipeline API placement.
 
 ### Frontend
 

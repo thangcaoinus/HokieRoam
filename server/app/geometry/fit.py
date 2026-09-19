@@ -97,7 +97,8 @@ def fit_glb(data: bytes, request: FitRequest) -> PlacementManifest:
     return PlacementManifest(
         asset_sha256=hashlib.sha256(data).hexdigest(), frame=request.frame,
         provenance=request.provenance, request=request, selected=selected, candidates=candidates,
-        plan_fit=status, neighbor_check="performed" if request.neighbors is not None else "not-provided",
+        plan_fit=status,
+        neighbor_check="performed" if request.neighbors is not None else "not-provided",
         source_dimensions_m=tuple(source_dimensions),
         fitted_dimensions_m=tuple(source_dimensions * selected.scale), warnings=warnings,
     )

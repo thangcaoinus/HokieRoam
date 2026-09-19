@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "photo": "photo.png",
+  "footprint_osm": "way-1174211880.osm",
+  "provenance": {
+    "source": "osm",
+    "feature_id": "way/1174211880",
+    "source_url": "https://www.openstreetmap.org/way/1174211880",
+    "identity_confirmed": true
+  },
+  "building": {
+    "name": "Data and Decision Sciences Building",
+    "address": "727 Prices Fork Road, Blacksburg, VA 24061",
+    "operator": "Virginia Tech"
+  },
+  "redesign_prompt": "Modern Hokie Stone academic building with large glass curtain walls, preserve roofline and massing.",
+  "generation": {
+    "provider": "fixture",
+    "synthetic": true,
+    "state": "succeeded",
+    "redesign_task_id": "fixture-redesign-50e16b3a78b94e6ead898a0c5789e6d0",
+    "reconstruct_task_id": "fixture-reconstruct-ed57489a8e5b44a79f27c80d4b3c9a65",
+    "placement_plan_fit": "rejected"
+  },
+  "artifacts": {
+    "source": "photo.png",
+    "concept": "concept.png",
+    "model": "model.glb",
+    "placement_manifest": "manifest.json"
+  }
+}

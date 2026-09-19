@@ -15,6 +15,8 @@ export interface Candidate {
 }
 
 export interface FitResult {
+  /** Browser output is an offline preview; server PlacementManifest is authoritative. */
+  authority: 'preview-only'
   matrices: { N: number[]; Ralign: number[]; Tground: number[]; S: number[]; Ry: number[]; Ttarget: number[]; M: number[] }
   rawAABB: { min: THREE.Vector3Tuple; max: THREE.Vector3Tuple }
   groundedAABB: { min: THREE.Vector3Tuple; max: THREE.Vector3Tuple }
@@ -243,6 +245,7 @@ export function solveFit({ mesh, normalization: N, footprint, neighbors }: FitIn
   }
 
   return {
+    authority: 'preview-only',
     matrices: {
       N: N.toArray(), Ralign: Ralign.toArray(), Tground: Tground.toArray(), S: S.toArray(),
       Ry: Ry.toArray(), Ttarget: Ttarget.toArray(), M: M.toArray(),
