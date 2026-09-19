@@ -177,6 +177,54 @@ Requirements beyond plumbing:
 Reconstruct on server bytes, a mid-job browser refresh re-attaches to the same job, and unsetting
 `VITE_API_BASE` still walks the whole pipeline offline.
 
+### P2 status: **done, 2026-09-19** — observed, not just written
+
+Driven in headless Chrome against a real uvicorn (`PIPELINE_PROVIDER=fixture`,
+`PIPELINE_FIXTURE_DELAY_SECONDS=8`), with `VITE_API_BASE=http://localhost:8000`:
+
+- **Real job to Reconstruct on server bytes:** Redesign → one `kind=pipeline` job → real
+  `stage`/`status`/`progress` rendered → concept shown from `/artifacts/concept` → GLB loaded from
+  `/artifacts/model` (asset report reads `pipeline job <id> · fixture`). Server ends `succeeded`/`fit`.
+- **Mid-job refresh:** reloaded at `running redesign 37 %` → the UI re-attached to the **same** job id,
+  one re-attach line, no new POST, and followed it to the mesh.
+- **Offline:** with `VITE_API_BASE` unset and Nominatim/Overpass blocked, the simulation walks
+  Ingest → Explore; no job panel appears.
+- **Money guards:** a lost response (job id dropped from localStorage, Generate clicked again) returned
+  the existing job — server job count unchanged. An explicit Regenerate created exactly one new job.
+  `submission-unknown` (set on the stored job) renders its own panel and **no** generate button.
+
+How it is wired:
+
+- `lib/pipelineJob.ts` (new) owns the job: one `pipeline` job per generation, so concept and mesh
+  share one provenance record and one export zip. Redesign starts it; Reconstruct re-attaches to it —
+  there is no second paid "reconstruct" click in API mode.
+- `Idempotency-Key` = `gt-<sha256(photo bytes, prompt, strength)[:32]>-a<attempt>`, persisted
+  **before** the POST. Same inputs → same key → same job. Only Regenerate on a *finished* job with
+  identical inputs bumps `attempt`.
+- localStorage `groundtruth.session.v1` keeps job id, key fingerprint, address, footprint, preset,
+  prompt, strength and stage. Reload re-attaches with GET only. The source photo, concept and mesh come
+  back from the job's artifacts. **New** in the header clears the session (the server keeps the job).
+- `stages/JobPanel.tsx` (new) shows only server-reported state; unknown progress is an indeterminate
+  bar, never a guessed number. Lost contact shows a **Re-attach** button — a GET, never a new job.
+- The timed `REDESIGN_STEPS` / `RECON_STEPS` walk now runs in simulation mode only, and simulated or
+  fixture output carries an on-screen "not AI generation" banner.
+- `redesign.ts` / `reconstruct.ts`: dead blob `fetch` calls removed; `simulateRedesign` /
+  `simulateReconstruct` are the offline path; `loadMeshUrl` loads a job's GLB. `MeshAsset.meta` gained
+  `jobId`, `provider`, `simulated`.
+- `store.ts` gained `job`, `jobError`, `api` (health) and `SESSION_KEY`.
+
+**Cross-lane edits, announced:** `App.tsx` (unowned) — only the header chip and one mount effect. The
+chip now claims "connected" only after `GET /v1/health` answers, and names a fixture server as
+synthetic: `Pipeline API connected · fixture (synthetic)` / `· meshy` / `unreachable` / `checking…`.
+
+**For other lanes:**
+
+- **P3:** `useStore().job` is the live `JobView`; `s.mesh.meta.jobId` marks a server mesh. `FitStage`
+  still runs the browser `solveFit` on it — per the P3 authority decision it should call
+  `requestFit(job.job_id, …)` for API jobs instead. Not touched here (P3's file).
+- **P5:** `components/Compare.tsx` hard-codes the tag "AI concept", which is wrong for simulated and
+  fixture output. The stages now add a banner above it, but the tag itself should take a prop.
+
 ---
 
 ## P3 — Geometry authority and tests

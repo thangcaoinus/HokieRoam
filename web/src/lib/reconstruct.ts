@@ -1,21 +1,34 @@
-// Image-to-3D reconstruction. Uses the backend when VITE_API_BASE is set,
-// otherwise procedurally builds a textured building from the concept image.
-// Generated meshes are emitted like a typical reconstruction export: Z-up,
-// centimetres, off-origin and arbitrarily rotated — the fitting engine has to
-// undo all of that.
+// Mesh assets for the Reconstruct stage.
+// - `loadMeshUrl`: the GLB a Pipeline API job stored on the server (lib/pipelineJob.ts).
+// - `loadMeshFile`: a user-supplied .glb / .obj.
+// - `simulateReconstruct`: LOCAL SIMULATION ONLY (VITE_API_BASE unset). Procedurally builds a
+//   textured building from the concept image. It is not image-to-3D and is labelled as such.
+//   It is emitted like a typical reconstruction export — Z-up, centimetres, off-origin and
+//   arbitrarily rotated — so the fitting engine has real work to undo. Keep that quirk.
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 
-const API = import.meta.env.VITE_API_BASE?.replace(/\/$/, '')
-
 export interface MeshAsset {
   object: THREE.Object3D
   normalization: THREE.Matrix4
-  meta: { source: string; format: string; upAxis: 'Y' | 'Z'; units: 'm' | 'cm' | 'mm'; vertices: number; triangles: number }
+  meta: {
+    source: string
+    format: string
+    upAxis: 'Y' | 'Z'
+    units: 'm' | 'cm' | 'mm'
+    vertices: number
+    triangles: number
+    /** Set when the bytes came from a Pipeline API job. */
+    jobId?: string
+    provider?: string
+    /** True for the local procedural stand-in — never image-to-3D output. */
+    simulated?: boolean
+  }
 }
 
+/** Timed steps for the simulation's progress walk. Never shown over a real server job. */
 export const RECON_STEPS = [
   'Synthesising novel views (6 × 320px)',
   'Sparse-view reconstruction · triplane decode',
@@ -43,9 +56,7 @@ function unitHeuristic(o: THREE.Object3D): { units: 'm' | 'cm' | 'mm'; scale: nu
   return { units: 'm', scale: 1 }
 }
 
-export async function loadMeshFile(file: File): Promise<MeshAsset> {
-  const url = URL.createObjectURL(file)
-  const ext = file.name.split('.').pop()!.toLowerCase()
+async function loadMesh(url: string, ext: string, meta: Pick<MeshAsset['meta'], 'source' | 'jobId' | 'provider'>): Promise<MeshAsset> {
   let object: THREE.Object3D
   if (ext === 'obj') object = await new OBJLoader().loadAsync(url)
   else object = (await new GLTFLoader().loadAsync(url)).scene
@@ -53,21 +64,26 @@ export async function loadMeshFile(file: File): Promise<MeshAsset> {
   const { units, scale } = unitHeuristic(object)
   return {
     object,
+    // glTF is Y-up by specification, so only the unit scale is inferred.
     normalization: new THREE.Matrix4().makeScale(scale, scale, scale),
-    meta: { source: file.name, format: ext.toUpperCase(), upAxis: 'Y', units, ...countStats(object) },
+    meta: { ...meta, format: ext.toUpperCase(), upAxis: 'Y', units, ...countStats(object) },
   }
 }
 
-export async function reconstruct(concept: string, style: string, onStep: (i: number) => void): Promise<MeshAsset> {
-  if (API) {
-    onStep(0)
-    const form = new FormData()
-    form.append('image', await (await fetch(concept)).blob(), 'concept.png')
-    const res = await fetch(`${API}/reconstruct`, { method: 'POST', body: form })
-    if (!res.ok) throw new Error(`reconstruct failed (${res.status})`)
-    onStep(RECON_STEPS.length - 1)
-    return loadMeshFile(new File([await res.blob()], 'reconstruction.glb'))
+export async function loadMeshFile(file: File): Promise<MeshAsset> {
+  const url = URL.createObjectURL(file)
+  try {
+    return await loadMesh(url, file.name.split('.').pop()!.toLowerCase(), { source: file.name })
+  } finally {
+    URL.revokeObjectURL(url)
   }
+}
+
+/** The GLB a pipeline job stored on the server. */
+export const loadMeshUrl = (url: string, meta: Pick<MeshAsset['meta'], 'source' | 'jobId' | 'provider'>) =>
+  loadMesh(url, 'glb', meta)
+
+export async function simulateReconstruct(concept: string, style: string, onStep: (i: number) => void): Promise<MeshAsset> {
   for (let i = 0; i < RECON_STEPS.length; i++) {
     onStep(i)
     await new Promise((r) => setTimeout(r, 700 + Math.random() * 500))
@@ -91,7 +107,7 @@ export async function reconstruct(concept: string, style: string, onStep: (i: nu
     raw.add(mesh)
   })
   const N = new THREE.Matrix4().makeRotationX(-Math.PI / 2).multiply(new THREE.Matrix4().makeScale(0.01, 0.01, 0.01))
-  return { object: raw, normalization: N, meta: { source: 'image-to-3D', format: 'GLB', upAxis: 'Z', units: 'cm', ...countStats(raw) } }
+  return { object: raw, normalization: N, meta: { source: 'local procedural simulation', format: 'GLB', upAxis: 'Z', units: 'cm', simulated: true, ...countStats(raw) } }
 }
 
 // ---------- procedural building ----------

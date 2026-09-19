@@ -1,14 +1,14 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check, RotateCcw, Terminal } from 'lucide-react'
 import { useEffect, useRef } from 'react'
-import { STAGES, completed, unlocked, useStore, type StageId } from './store'
+import { STAGES, completed, unlocked, useStore, type ApiState, type StageId } from './store'
+import { probeHealth, resumeSession } from './lib/pipelineJob'
 import IngestStage from './stages/IngestStage'
 import RedesignStage from './stages/RedesignStage'
 import ReconstructStage from './stages/ReconstructStage'
 import FitStage from './stages/FitStage'
 import ExploreStage from './stages/ExploreStage'
 
-const LIVE = !!import.meta.env.VITE_API_BASE
 
 const VIEWS: Record<StageId, () => JSX.Element> = {
   ingest: IngestStage,
@@ -20,6 +20,8 @@ const VIEWS: Record<StageId, () => JSX.Element> = {
 
 export default function App() {
   const s = useStore()
+  // Pipeline API mode only: check the server, then re-attach to a saved job (GET only, never POST).
+  useEffect(() => { void probeHealth(); void resumeSession() }, [])
   const View = VIEWS[s.stage]
   const open = unlocked(s)
   const done = completed(s)
@@ -42,10 +44,7 @@ export default function App() {
             </span>
           )}
           {s.geo && <span className="chip mono">bucket · {s.geo.bucket}</span>}
-          <span className="chip" title={LIVE ? import.meta.env.VITE_API_BASE : 'Set VITE_API_BASE to use the real pipeline'}>
-            <span className={`dot ${LIVE ? 'live' : 'mock'}`} />
-            {LIVE ? 'Pipeline API connected' : 'Local AI simulation'}
-          </span>
+          <ApiChip api={s.api} />
           <button className="btn sm ghost" onClick={s.reset} title="Start a new project">
             <RotateCcw size={14} /> New
           </button>
@@ -98,6 +97,27 @@ export default function App() {
         </main>
       </div>
     </>
+  )
+}
+
+/**
+ * The honesty signal. "Connected" is only claimed after /v1/health answers, and a fixture server is
+ * named as synthetic — neither may read as AI generation. Simulation mode says so plainly.
+ */
+function ApiChip({ api }: { api: ApiState }) {
+  const base = import.meta.env.VITE_API_BASE
+  let tone: 'live' | 'warn' | 'err' | 'idle', text: string, title = base ?? ''
+  if (api.state === 'off') { tone = 'warn'; text = 'Local AI simulation'; title = 'Set VITE_API_BASE to use the real pipeline' }
+  else if (api.state === 'checking') { tone = 'idle'; text = 'Pipeline API · checking…' }
+  else if (api.state === 'down') { tone = 'err'; text = 'Pipeline API unreachable'; title = `No answer from ${base}/v1/health` }
+  else if (api.live) { tone = 'live'; text = `Pipeline API connected · ${api.provider}` }
+  else { tone = 'warn'; text = `Pipeline API connected · ${api.provider} (synthetic)`; title = `${base} — the ${api.provider} provider returns placeholders, not AI generation` }
+  const color = { live: 'var(--ok)', warn: 'var(--warn)', err: 'var(--err)', idle: 'var(--text-3)' }[tone]
+  return (
+    <button className="chip" title={title} disabled={api.state === 'off'} onClick={() => void probeHealth()} style={{ cursor: api.state === 'off' ? 'default' : 'pointer' }}>
+      <span className={`dot ${tone === 'live' ? 'live' : ''}`} style={{ background: color, boxShadow: tone === 'idle' ? 'none' : `0 0 10px ${color}` }} />
+      {text}
+    </button>
   )
 }
 
