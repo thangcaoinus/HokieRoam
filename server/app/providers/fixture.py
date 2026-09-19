@@ -24,7 +24,8 @@ class FixtureProvider:
             return output.getvalue()
         if url == "fixture://reconstruct":
             mesh = trimesh.creation.box(extents=[2, 1, 1])
-            mesh.visual.face_colors = [145, 90, 45, 255]
+            # Keep this dependency-free. Face-color export asks trimesh for SciPy,
+            # which is deliberately not a runtime dependency of the fixture path.
             return trimesh.Scene(mesh).export(file_type="glb")
         raise ProviderError("Unknown fixture artifact")
 

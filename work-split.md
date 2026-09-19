@@ -143,6 +143,11 @@ Keep the frame contract: scene is X=East, Y=Up, Z=South; plan is `(East, North) 
 **Done when:** `.venv/bin/python -m pytest` is green on all four, and one short paragraph in this file
 records which engine is authoritative and what the other one is now allowed to do.
 
+**Authority decision (P3):** `server/app/geometry/fit.py` is the sole authority for a real placement. It
+produces the versioned `PlacementManifest`, validates actual footprint containment and neighbors, and uses
+uniform scale only. `web/src/lib/fit.ts` remains an explicitly labelled offline/simulation preview; it must
+not be used to certify, export, or overwrite a placement for a Pipeline API job.
+
 ---
 
 ## P4 — Real building, real asset, cached sample
