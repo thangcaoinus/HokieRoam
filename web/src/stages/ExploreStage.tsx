@@ -1,0 +1,370 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { Line, Sky, Sparkles } from '@react-three/drei'
+import * as THREE from 'three'
+import { ArrowLeft, MousePointer2, ShieldAlert } from 'lucide-react'
+import { useStore } from '../store'
+import { pointInPolygon, unproject, type V2 } from '../lib/geo'
+import type { FitResult } from '../lib/fit'
+import type { MeshAsset } from '../lib/reconstruct'
+
+const RADIUS = 0.45
+const WALK = 5.5
+const SPRINT = 11
+
+type Keys = Record<string, boolean>
+interface PlayerState { pos: THREE.Vector3; heading: number; camYaw: number; camPitch: number; vy: number; speed: number; blocked: string | null }
+
+// ---------- collision ----------
+function distToSegment(p: V2, a: V2, b: V2) {
+  const dx = b.x - a.x, dz = b.z - a.z
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.z - a.z) * dz) / (dx * dx + dz * dz || 1)))
+  return Math.hypot(p.x - (a.x + t * dx), p.z - (a.z + t * dz))
+}
+function hits(p: V2, poly: V2[]) {
+  if (pointInPolygon(p, poly)) return true
+  for (let i = 0; i < poly.length; i++) if (distToSegment(p, poly[i], poly[(i + 1) % poly.length]) < RADIUS) return true
+  return false
+}
+
+// ---------- scene pieces ----------
+const GROUND: Record<string, [string, string]> = {
+  scorched: ['#6b4a30', '#3a2616'], campus: ['#4d6b3a', '#2f4424'], overgrown: ['#3f5a2c', '#243418'], noir: ['#1b1a22', '#0c0b10'],
+}
+function groundTexture(style: string) {
+  const [a, b] = GROUND[style] ?? GROUND.scorched
+  const c = document.createElement('canvas'); c.width = c.height = 512
+  const x = c.getContext('2d')!
+  x.fillStyle = a; x.fillRect(0, 0, 512, 512)
+  let s = 9
+  const r = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)
+  for (let i = 0; i < 5000; i++) { x.fillStyle = r() < 0.5 ? b : 'rgba(255,255,255,0.05)'; x.globalAlpha = r() * 0.35; x.fillRect(r() * 512, r() * 512, 1 + r() * 4, 1 + r() * 4) }
+  x.globalAlpha = 0.5; x.strokeStyle = b; x.lineWidth = 1.2
+  for (let i = 0; i < 40; i++) {
+    let px = r() * 512, py = r() * 512
+    x.beginPath(); x.moveTo(px, py)
+    for (let k = 0; k < 8; k++) { px += (r() - 0.5) * 60; py += (r() - 0.5) * 60; x.lineTo(px, py) }
+    x.stroke()
+  }
+  const t = new THREE.CanvasTexture(c)
+  t.wrapS = t.wrapT = THREE.RepeatWrapping
+  t.repeat.set(40, 40)
+  t.colorSpace = THREE.SRGBColorSpace
+  t.anisotropy = 8
+  return t
+}
+
+function Building({ asset, M }: { asset: MeshAsset; M: THREE.Matrix4 }) {
+  const obj = useMemo(() => {
+    const o = asset.object.clone(true)
+    o.traverse((c) => { if ((c as THREE.Mesh).isMesh) { c.castShadow = true; c.receiveShadow = true } })
+    return o
+  }, [asset])
+  return (
+    <group matrixAutoUpdate={false} matrix={M}>
+      <primitive object={obj} />
+    </group>
+  )
+}
+
+function Extruded({ poly, h, color }: { poly: V2[]; h: number; color: string }) {
+  const geo = useMemo(() => {
+    const s = new THREE.Shape()
+    poly.forEach((p, i) => (i ? s.lineTo(p.x, -p.z) : s.moveTo(p.x, -p.z)))
+    const g = new THREE.ExtrudeGeometry(s, { depth: h, bevelEnabled: false })
+    g.rotateX(-Math.PI / 2)
+    return g
+  }, [poly, h])
+  return <mesh geometry={geo} castShadow receiveShadow><meshStandardMaterial color={color} roughness={0.95} /></mesh>
+}
+
+const loop = (p: V2[], y: number): [number, number, number][] => [...p, p[0]].map((v) => [v.x, y, v.z])
+
+function Player({ state, keys, colliders }: { state: React.MutableRefObject<PlayerState>; keys: React.MutableRefObject<Keys>; colliders: { poly: V2[]; name: string }[] }) {
+  const body = useRef<THREE.Group>(null)
+  const sun = useRef<THREE.DirectionalLight>(null)
+  const { camera, scene } = useThree()
+  const look = useRef(new THREE.Vector3())
+  const bob = useRef(0)
+
+  useEffect(() => { if (sun.current) scene.add(sun.current.target) }, [scene])
+
+  useFrame((_, rawDt) => {
+    const dt = Math.min(rawDt, 0.05)
+    const st = state.current
+    const k = keys.current
+    if (k.q) st.camYaw += dt * 2
+    if (k.e) st.camYaw -= dt * 2
+    const ix = (k.d ? 1 : 0) - (k.a ? 1 : 0)
+    const iz = (k.s ? 1 : 0) - (k.w ? 1 : 0)
+    const speed = k.shift ? SPRINT : WALK
+    let moving = false
+    st.blocked = null
+    if (ix || iz) {
+      const len = Math.hypot(ix, iz)
+      const c = Math.cos(st.camYaw), sn = Math.sin(st.camYaw)
+      // camera-relative: forward = (-sin yaw, -cos yaw)
+      const dx = ((ix * c + iz * sn) / len) * speed * dt
+      const dz = ((-ix * sn + iz * c) / len) * speed * dt
+      const tryMove = (x: number, z: number) => {
+        const p = { x, z }
+        for (const col of colliders) if (hits(p, col.poly)) { st.blocked = col.name; return false }
+        return true
+      }
+      const { x, z } = st.pos
+      if (tryMove(x + dx, z + dz)) { st.pos.x += dx; st.pos.z += dz }
+      else if (tryMove(x + dx, z)) st.pos.x += dx
+      else if (tryMove(x, z + dz)) st.pos.z += dz
+      const target = Math.atan2(dx, dz)
+      let diff = target - st.heading
+      diff = Math.atan2(Math.sin(diff), Math.cos(diff))
+      st.heading += diff * Math.min(1, dt * 12)
+      moving = true
+    }
+    // jump + gravity
+    if (k[' '] && st.pos.y <= 0.0001) st.vy = 6.2
+    st.vy -= 18 * dt
+    st.pos.y = Math.max(0, st.pos.y + st.vy * dt)
+    if (st.pos.y === 0) st.vy = Math.max(0, st.vy)
+    st.speed = moving ? speed : 0
+
+    bob.current += dt * (moving ? speed * 1.6 : 2)
+    if (body.current) {
+      body.current.position.set(st.pos.x, st.pos.y + (moving && st.pos.y === 0 ? Math.abs(Math.sin(bob.current)) * 0.08 : 0), st.pos.z)
+      body.current.rotation.y = st.heading
+    }
+
+    // over-the-shoulder chase camera
+    const dist = 7.5, h = 2.4 + st.camPitch * 6
+    const cy = Math.cos(st.camYaw), sy = Math.sin(st.camYaw)
+    const shoulder = 0.9
+    const desired = new THREE.Vector3(st.pos.x + sy * dist + cy * shoulder, st.pos.y + h, st.pos.z + cy * dist - sy * shoulder)
+    const a = 1 - Math.exp(-dt * 7)
+    camera.position.lerp(desired, a)
+    const tgt = new THREE.Vector3(st.pos.x + cy * shoulder * 0.6, st.pos.y + 1.6, st.pos.z - sy * shoulder * 0.6)
+    look.current.lerp(tgt, 1 - Math.exp(-dt * 10))
+    camera.lookAt(look.current)
+
+    if (sun.current) {
+      sun.current.position.set(st.pos.x + 40, 70, st.pos.z + 25)
+      sun.current.target.position.set(st.pos.x, 0, st.pos.z)
+    }
+  })
+
+  return (
+    <>
+      <directionalLight ref={sun} intensity={2.4} color="#ffd6a8" castShadow shadow-mapSize={[2048, 2048]} shadow-camera-left={-60} shadow-camera-right={60} shadow-camera-top={60} shadow-camera-bottom={-60} shadow-bias={-0.0004} />
+      <group ref={body}>
+        <mesh position-y={0.95} castShadow>
+          <capsuleGeometry args={[RADIUS, 1.0, 8, 16]} />
+          <meshStandardMaterial color="#e8e2d8" roughness={0.4} metalness={0.1} />
+        </mesh>
+        <mesh position={[0, 1.45, RADIUS - 0.04]}>
+          <boxGeometry args={[0.52, 0.14, 0.12]} />
+          <meshStandardMaterial color="#ff6b2c" emissive="#ff6b2c" emissiveIntensity={3} />
+        </mesh>
+        <mesh rotation-x={-Math.PI / 2} position-y={0.02}>
+          <ringGeometry args={[0.6, 0.72, 40]} />
+          <meshBasicMaterial color="#ff6b2c" transparent opacity={0.6} />
+        </mesh>
+      </group>
+    </>
+  )
+}
+
+function World({ fit, asset, footprint, neighbors, style, state, keys, show }: {
+  fit: FitResult; asset: MeshAsset; footprint: V2[]; neighbors: V2[][]; style: string
+  state: React.MutableRefObject<PlayerState>; keys: React.MutableRefObject<Keys>; show: { footprint: boolean; bbox: boolean }
+}) {
+  const M = useMemo(() => new THREE.Matrix4().fromArray(fit.matrices.M), [fit])
+  const tex = useMemo(() => groundTexture(style), [style])
+  const colliders = useMemo(() => [
+    { poly: footprint, name: 'footprint boundary' },
+    { poly: fit.chosen.poly, name: 'building bounding hull' },
+    ...neighbors.map((n) => ({ poly: n, name: 'adjacent parcel' })),
+  ], [footprint, fit, neighbors])
+  const night = style === 'noir'
+  const fogColor = night ? '#0b0816' : style === 'scorched' ? '#c79a6f' : '#b9c7cf'
+  return (
+    <>
+      <color attach="background" args={[fogColor]} />
+      <fog attach="fog" args={[fogColor, 30, night ? 140 : 220]} />
+      {!night && <Sky sunPosition={[80, style === 'scorched' ? 18 : 40, 50]} turbidity={style === 'scorched' ? 14 : 6} rayleigh={style === 'scorched' ? 3 : 1.2} mieCoefficient={0.01} />}
+      <hemisphereLight args={[night ? '#5a3cff' : '#ffe9d0', night ? '#0a0610' : '#3b2a1c', night ? 0.35 : 0.8]} />
+      <mesh rotation-x={-Math.PI / 2} receiveShadow>
+        <planeGeometry args={[800, 800]} />
+        <meshStandardMaterial map={tex} roughness={night ? 0.35 : 1} metalness={night ? 0.3 : 0} />
+      </mesh>
+      <Building asset={asset} M={M} />
+      {neighbors.map((n, i) => <Extruded key={i} poly={n} h={6 + ((i * 7) % 9)} color={night ? '#1c1a26' : '#5b5048'} />)}
+      {show.footprint && <Line points={loop(footprint, 0.05)} color="#ff6b2c" lineWidth={3} />}
+      {show.bbox && <Line points={loop(fit.chosen.poly, 0.07)} color="#5ee1ff" lineWidth={2} dashed dashSize={0.8} gapSize={0.5} />}
+      {style === 'scorched' && <Sparkles count={260} scale={[120, 20, 120]} position={[0, 8, 0]} size={3} speed={0.5} color="#ffb35c" opacity={0.6} />}
+      {night && <Sparkles count={200} scale={[120, 30, 120]} position={[0, 10, 0]} size={2} speed={0.3} color="#2ef2ff" />}
+      <Player state={state} keys={keys} colliders={colliders} />
+    </>
+  )
+}
+
+function spawnPoint(fit: FitResult, colliders: V2[][]): THREE.Vector3 {
+  const { center, angle, length } = fit.footprintOBB
+  for (let r = length / 2 + 16; r < 120; r += 3)
+    for (let a = 0; a < 16; a++) {
+      const t = angle + Math.PI / 2 + (a * Math.PI) / 8
+      const p = { x: center.x + Math.cos(t) * r, z: center.z + Math.sin(t) * r }
+      if (!colliders.some((c) => hits(p, c))) return new THREE.Vector3(p.x, 0, p.z)
+    }
+  return new THREE.Vector3(center.x, 0, center.z + 60)
+}
+
+function Minimap({ footprint, neighbors, state, fit }: { footprint: V2[]; neighbors: V2[][]; state: React.MutableRefObject<PlayerState>; fit: FitResult }) {
+  const dot = useRef<SVGGElement>(null)
+  const S = 60 // meters radius shown
+  const c = fit.footprintOBB.center
+  const P = (p: V2) => `${((p.x - c.x) / S) * 100 + 100},${((p.z - c.z) / S) * 100 + 100}`
+  useEffect(() => {
+    let id = 0
+    const tick = () => {
+      const st = state.current
+      if (dot.current) {
+        const x = Math.max(4, Math.min(196, ((st.pos.x - c.x) / S) * 100 + 100))
+        const y = Math.max(4, Math.min(196, ((st.pos.z - c.z) / S) * 100 + 100))
+        dot.current.setAttribute('transform', `translate(${x},${y}) rotate(${(-st.heading * 180) / Math.PI + 180})`)
+      }
+      id = requestAnimationFrame(tick)
+    }
+    tick()
+    return () => cancelAnimationFrame(id)
+  }, [state, c.x, c.z])
+  return (
+    <svg className="minimap" viewBox="0 0 200 200">
+      <defs><clipPath id="mm"><circle cx="100" cy="100" r="98" /></clipPath></defs>
+      <circle cx="100" cy="100" r="98" fill="rgba(0,0,0,.5)" />
+      <g clipPath="url(#mm)">
+        {[40, 80].map((r) => <circle key={r} cx="100" cy="100" r={r} fill="none" stroke="rgba(255,255,255,.07)" />)}
+        {neighbors.map((n, i) => <polygon key={i} points={n.map(P).join(' ')} fill="rgba(255,255,255,.12)" />)}
+        <polygon points={footprint.map(P).join(' ')} fill="rgba(255,107,44,.35)" stroke="#ff6b2c" strokeWidth="1.5" />
+        <g ref={dot}>
+          <path d="M0-7 5 5 0 2-5 5Z" fill="#fff" />
+        </g>
+      </g>
+      <text x="100" y="14" textAnchor="middle" fontSize="10" fill="#a8a39c" fontFamily="JetBrains Mono">N</text>
+    </svg>
+  )
+}
+
+function Readout({ state }: { state: React.MutableRefObject<PlayerState> }) {
+  const geo = useStore((s) => s.geo)!
+  const [r, setR] = useState({ lat: geo.lat, lon: geo.lon, speed: 0, blocked: null as string | null })
+  useEffect(() => {
+    const id = setInterval(() => {
+      const st = state.current
+      const [lat, lon] = unproject({ x: st.pos.x, z: st.pos.z }, geo.lat, geo.lon)
+      setR({ lat, lon, speed: st.speed, blocked: st.blocked })
+    }, 120)
+    return () => clearInterval(id)
+  }, [state, geo])
+  return (
+    <>
+      <div className="glass" style={{ padding: '12px 16px', minWidth: 250 }}>
+        <div className="eyebrow" style={{ fontSize: 10 }}>Live · map-anchored</div>
+        <div style={{ font: '600 17px var(--display)', margin: '4px 0 6px' }}>{geo.displayName.split(',')[0]}</div>
+        <div className="kv"><span>Position</span><span>{r.lat.toFixed(6)}, {r.lon.toFixed(6)}</span></div>
+        <div className="kv"><span>Speed</span><span>{r.speed.toFixed(1)} m/s</span></div>
+      </div>
+      {r.blocked && <div className="glass toast" style={{ marginTop: 8 }}><ShieldAlert size={14} /> Collision · {r.blocked}</div>}
+    </>
+  )
+}
+
+export default function ExploreStage() {
+  const s = useStore()
+  const keys = useRef<Keys>({})
+  const [pressed, setPressed] = useState<Keys>({})
+  const [focused, setFocused] = useState(false)
+  const [show, setShow] = useState({ footprint: true, bbox: false })
+  const wrap = useRef<HTMLDivElement>(null)
+  const fit = s.fit!, geo = s.geo!, mesh = s.mesh!
+  const state = useRef<PlayerState>({
+    pos: spawnPoint(fit, [geo.footprint, fit.chosen.poly, ...geo.neighbors]),
+    heading: 0, camYaw: 0, camPitch: 0.15, vy: 0, speed: 0, blocked: null,
+  })
+  // face the building on spawn
+  useMemo(() => {
+    const st = state.current
+    st.camYaw = Math.atan2(st.pos.x - fit.footprintOBB.center.x, st.pos.z - fit.footprintOBB.center.z)
+    st.heading = st.camYaw + Math.PI
+  }, [fit])
+
+  useEffect(() => {
+    const norm = (e: KeyboardEvent) => (e.key === 'Shift' ? 'shift' : e.key.toLowerCase())
+    const down = (e: KeyboardEvent) => {
+      const k = norm(e)
+      if (['w', 'a', 's', 'd', ' ', 'shift', 'q', 'e'].includes(k)) e.preventDefault()
+      keys.current[k] = true; setPressed({ ...keys.current })
+    }
+    const up = (e: KeyboardEvent) => { keys.current[norm(e)] = false; setPressed({ ...keys.current }) }
+    const blur = () => { keys.current = {}; setPressed({}) }
+    const move = (e: MouseEvent) => {
+      if (document.pointerLockElement !== wrap.current) return
+      state.current.camYaw -= e.movementX * 0.0035
+      state.current.camPitch = Math.max(-0.2, Math.min(0.9, state.current.camPitch + e.movementY * 0.0025))
+    }
+    const lock = () => setFocused(document.pointerLockElement === wrap.current)
+    window.addEventListener('keydown', down)
+    window.addEventListener('keyup', up)
+    window.addEventListener('blur', blur)
+    window.addEventListener('mousemove', move)
+    document.addEventListener('pointerlockchange', lock)
+    return () => {
+      window.removeEventListener('keydown', down); window.removeEventListener('keyup', up)
+      window.removeEventListener('blur', blur); window.removeEventListener('mousemove', move)
+      document.removeEventListener('pointerlockchange', lock)
+    }
+  }, [])
+
+  const K = ({ k, label }: { k: string; label?: string }) => <div className={`key ${pressed[k] ? 'on' : ''}`}>{label ?? k.toUpperCase()}</div>
+
+  return (
+    <div className="explore" ref={wrap}>
+      <Canvas shadows camera={{ fov: 60, near: 0.1, far: 800, position: [0, 20, 60] }} dpr={[1, 2]}>
+        <World fit={fit} asset={mesh} footprint={geo.footprint} neighbors={geo.neighbors} style={s.presetId} state={state} keys={keys} show={show} />
+      </Canvas>
+
+      <div className="hud tl"><Readout state={state} /></div>
+      <div className="hud tr glass" style={{ padding: 8, borderRadius: '50%' }}>
+        <Minimap footprint={geo.footprint} neighbors={geo.neighbors} state={state} fit={fit} />
+      </div>
+      <div className="hud bl glass" style={{ padding: 14, display: 'flex', gap: 18, alignItems: 'flex-end' }}>
+        <div className="keys">
+          <K k="q" /><K k="w" /><K k="e" />
+          <K k="a" /><K k="s" /><K k="d" />
+        </div>
+        <div style={{ display: 'grid', gap: 4 }}>
+          <div className={`key ${pressed.shift ? 'on' : ''}`} style={{ width: 70 }}>SHIFT</div>
+          <div className={`key ${pressed[' '] ? 'on' : ''}`} style={{ width: 70 }}>SPACE</div>
+        </div>
+        <div className="dimmer" style={{ fontSize: 11.5, lineHeight: 1.7 }}>
+          <div>WASD move · Q/E orbit</div>
+          <div>Shift sprint · Space jump</div>
+          <div>Mouse look (click to lock)</div>
+        </div>
+      </div>
+      <div className="hud br glass" style={{ padding: '10px 14px', display: 'flex', gap: 14, alignItems: 'center' }}>
+        <label className="toggle"><input type="checkbox" checked={show.footprint} onChange={(e) => setShow({ ...show, footprint: e.target.checked })} />Footprint</label>
+        <label className="toggle"><input type="checkbox" checked={show.bbox} onChange={(e) => setShow({ ...show, bbox: e.target.checked })} />Mesh hull</label>
+        <button className="btn sm" onClick={() => s.go('fit')}><ArrowLeft size={13} /> Transform</button>
+      </div>
+
+      {!focused && (
+        <div className="focus-prompt" onClick={() => wrap.current?.requestPointerLock()}>
+          <div className="glass inner">
+            <MousePointer2 size={26} color="#ff6b2c" />
+            <div style={{ font: '600 20px var(--display)', margin: '8px 0 4px' }}>Click to enter the site</div>
+            <div className="dimmer" style={{ fontSize: 13 }}>Mouse to look · WASD to move · Esc to release</div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
