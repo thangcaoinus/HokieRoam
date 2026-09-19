@@ -1,13 +1,13 @@
 """Small SQLite job store and immutable per-job files; one application worker."""
-from contextlib import contextmanager
-from datetime import datetime, timezone
 import hashlib
 import io
 import json
-from pathlib import Path
 import sqlite3
 import uuid
 import zipfile
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from pathlib import Path
 
 from PIL import Image, UnidentifiedImageError
 
@@ -62,7 +62,8 @@ class JobStore:
 
     def find(self, request_key: str) -> dict | None:
         with self.connection() as connection:
-            row = connection.execute("SELECT body FROM jobs WHERE request_key=?", (request_key,)).fetchone()
+            row = connection.execute(
+                "SELECT body FROM jobs WHERE request_key=?", (request_key,)).fetchone()
         return json.loads(row[0]) if row else None
 
     def all(self) -> list[dict]:
@@ -90,12 +91,26 @@ class JobStore:
     def reserve_submission(self, key: str, maximum: int):
         with self.connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            if connection.execute("SELECT 1 FROM submissions WHERE submission_key=?", (key,)).fetchone():
+            if connection.execute(
+                    "SELECT 1 FROM submissions WHERE submission_key=?", (key,)).fetchone():
                 raise ValueError("Submission already reserved; reconcile before resubmitting")
             count = connection.execute("SELECT COUNT(*) FROM submissions").fetchone()[0]
             if count >= maximum:
                 raise ValueError("Configured provider-submission cap reached")
             connection.execute("INSERT INTO submissions VALUES (?, ?)", (key, now()))
+
+    def has_submission(self, key: str) -> bool:
+        """True once a key is reserved. A reserved key with no recorded task id means the provider
+        may already have accepted and billed the request, so the caller must not resubmit."""
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT 1 FROM submissions WHERE submission_key=?", (key,)).fetchone()
+        return row is not None
+
+    def submissions_used(self) -> int:
+        """Rows reserved against PIPELINE_MAX_SUBMISSIONS. Reported by /v1/health, never reset."""
+        with self.connection() as connection:
+            return connection.execute("SELECT COUNT(*) FROM submissions").fetchone()[0]
 
     def write(self, job_id: str, name: str, data: bytes):
         directory = self.root / job_id
@@ -124,4 +139,8 @@ class JobStore:
                 for name in job["files"]
             }
             archive.writestr("generation.json", json.dumps(metadata, indent=2))
+            # The manifest is the actual handoff artifact: it carries the placement matrix that
+            # the untouched GLB beside it deliberately does not have baked in.
+            if job.get("placement"):
+                archive.writestr("placement.json", json.dumps(job["placement"], indent=2))
         return output.getvalue()

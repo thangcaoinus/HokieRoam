@@ -1,10 +1,10 @@
-// Image-to-image conceptual redesign. Calls the backend when VITE_API_BASE is
-// set; otherwise runs a local, geometry-preserving colour/material restyle so
-// the rest of the pipeline can be demoed offline.
+// Image-to-image conceptual redesign — LOCAL SIMULATION ONLY.
+// With VITE_API_BASE set, the real redesign runs as a server job (lib/pipelineJob.ts) and this
+// module is not called. Without it, a deterministic canvas colour/material restyle stands in so the
+// whole pipeline can be demoed offline. It is labelled as a simulation wherever it reaches a screen.
 import type { StylePreset } from './presets'
 
-const API = import.meta.env.VITE_API_BASE?.replace(/\/$/, '')
-
+/** Timed steps for the simulation's progress walk. Never shown over a real server job. */
 export const REDESIGN_STEPS = [
   'Encoding source geometry (depth + edge control)',
   'Conditioning on aesthetic prompt',
@@ -12,25 +12,13 @@ export const REDESIGN_STEPS = [
   'Refining detail · upscaling',
 ]
 
-export async function redesign(
+/** The free-text prompt only matters to a real model; the simulation keys off the preset. */
+export async function simulateRedesign(
   source: string,
   preset: StylePreset,
-  prompt: string,
   strength: number,
   onStep: (i: number) => void,
 ): Promise<string> {
-  if (API) {
-    onStep(0)
-    const blob = await (await fetch(source)).blob()
-    const form = new FormData()
-    form.append('image', blob, 'source.png')
-    form.append('prompt', prompt)
-    form.append('strength', String(strength))
-    const res = await fetch(`${API}/redesign`, { method: 'POST', body: form })
-    if (!res.ok) throw new Error(`redesign failed (${res.status})`)
-    onStep(REDESIGN_STEPS.length - 1)
-    return URL.createObjectURL(await res.blob())
-  }
   for (let i = 0; i < REDESIGN_STEPS.length; i++) {
     onStep(i)
     await new Promise((r) => setTimeout(r, 650 + Math.random() * 450))

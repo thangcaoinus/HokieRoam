@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { GeoResult } from './lib/geo'
 import type { FitResult } from './lib/fit'
 import type { MeshAsset } from './lib/reconstruct'
+import type { JobView } from './lib/api'
 import { PRESETS } from './lib/presets'
 
 export type StageId = 'ingest' | 'redesign' | 'reconstruct' | 'fit' | 'explore'
@@ -12,6 +13,16 @@ export const STAGES: { id: StageId; title: string; sub: string }[] = [
   { id: 'fit', title: 'Fit & Align', sub: 'Footprint snapping engine' },
   { id: 'explore', title: 'Explore', sub: 'Third-person walkthrough' },
 ]
+
+/** localStorage key for the Pipeline API session (job id, address, footprint) — see lib/pipelineJob.ts. */
+export const SESSION_KEY = 'groundtruth.session.v1'
+
+/** Reachability of VITE_API_BASE, from GET /v1/health. 'off' means simulation mode. */
+export type ApiState =
+  | { state: 'off' }
+  | { state: 'checking' }
+  | { state: 'down' }
+  | { state: 'up'; provider: string; live: boolean }
 
 export interface LogLine { t: number; msg: string; level: 'info' | 'ok' | 'warn' }
 
@@ -27,6 +38,11 @@ interface State {
   concept: string | null
   mesh: MeshAsset | null
   fit: FitResult | null
+  /** Latest server snapshot of the Pipeline API job, or null in simulation mode. */
+  job: JobView | null
+  /** Client-side failure talking to the API (unreachable, lost contact). Not a job status. */
+  jobError: string | null
+  api: ApiState
   logs: LogLine[]
   set: (p: Partial<State>) => void
   go: (s: StageId) => void
@@ -46,15 +62,22 @@ const initial = {
   concept: null,
   mesh: null,
   fit: null,
+  job: null as JobView | null,
+  jobError: null as string | null,
 }
 
 export const useStore = create<State>((set) => ({
   ...initial,
+  api: { state: import.meta.env.VITE_API_BASE ? 'checking' : 'off' } as ApiState,
   logs: [{ t: Date.now(), msg: 'pipeline › ready', level: 'info' }],
   set: (p) => set(p),
   go: (stage) => set({ stage }),
   log: (msg, level = 'info') => set((s) => ({ logs: [...s.logs.slice(-199), { t: Date.now(), msg, level }] })),
-  reset: () => set({ ...initial, logs: [{ t: Date.now(), msg: 'pipeline › reset', level: 'info' }] }),
+  reset: () => {
+    // Drop the saved job so a reload starts clean. The server keeps the job itself.
+    try { localStorage.removeItem(SESSION_KEY) } catch { /* ignore */ }
+    set({ ...initial, logs: [{ t: Date.now(), msg: 'pipeline › reset', level: 'info' }] })
+  },
 }))
 
 /** Which stages are reachable given current artefacts. */
