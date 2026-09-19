@@ -36,8 +36,10 @@ class MeshyProvider:
             payload = {
                 "ai_model": self.settings.image_model,
                 "reference_image_urls": [uri],
-                "prompt": (f"{prompt}\nRequested style intensity: {strength:.2f}/1. "
-                           "Preserve building silhouette, perspective, and visible structural layout."),
+                "prompt": (
+                    f"{prompt}\nRequested style intensity: {strength:.2f}/1. "
+                    "Preserve building silhouette, perspective, and visible structural layout."
+                ),
             }
         else:
             payload = {
@@ -51,7 +53,8 @@ class MeshyProvider:
                 headers=self.headers(), json=payload,
             )
         except httpx.RequestError as exc:
-            raise SubmissionUnknown("Submission interrupted; inspect Meshy before retrying") from exc
+            raise SubmissionUnknown(
+                "Submission interrupted; inspect Meshy before retrying") from exc
         if response.status_code >= 500:
             raise SubmissionUnknown("Meshy server error during submission; acceptance is unknown")
         if response.is_error:
@@ -62,7 +65,8 @@ class MeshyProvider:
                 raise ValueError("Invalid task id")
             return task_id
         except (ValueError, KeyError, TypeError) as exc:
-            raise SubmissionUnknown("Meshy response omitted a task ID; reconcile in provider account") from exc
+            raise SubmissionUnknown(
+                "Meshy response omitted a task ID; reconcile in provider account") from exc
 
     async def poll(self, stage: Stage, task_id: str) -> TaskSnapshot:
         response = await self.client.get(
@@ -89,7 +93,8 @@ class MeshyProvider:
         progress = min(100, max(0, int(progress))) if isinstance(progress, (int, float)) else None
         return TaskSnapshot(
             status=states[raw_status], progress=progress, output_url=url,
-            error="Remote generation failed or was cancelled" if states[raw_status] == "failed" else None,
+            error=("Remote generation failed or was cancelled"
+                   if states[raw_status] == "failed" else None),
         )
 
     async def download(self, url: str) -> bytes:

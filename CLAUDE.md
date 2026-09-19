@@ -21,6 +21,58 @@ Document authority, in order:
 - `technical-reference.md` — research and deferred scope. Consult for a specific question; not a build order.
 - `spec.md` — the original pitch. What judges were promised, not what is being built.
 
+## What the sponsor actually asked for (researched 2026-09-19)
+
+Primary sources: opening-ceremony deck pp. 55–59 (embedded images — render them, `pdftotext` misses them),
+the [hacker guide](https://vthacks.com/guide), [Devpost](https://vthacks-14.devpost.com/), and
+[scorchednebraska.org](https://scorchednebraska.org/). Do not re-research this; it is settled.
+
+**There is no Procedura API, and no integration surface of any kind.** No developer portal, no docs, no
+endpoint, no auth, no mesh format spec, no asset submission system. Devpost lists the track as
+"Details TBD." Scorched Nebraska renders with custom OpenGL — not Unity or Unreal — so there is not even a
+standard package format to target. The public challenge statement is one sentence: *"Turn building photos
+and an address into a correctly placed, map-ready 3D model for Scorched Nebraska."*
+
+**The challenge is to independently rebuild Procedura's own pipeline, not to plug into it.** Deck p.55
+lists what Procedura does ("resolves the address and authoritative building footprint / coordinates the
+image-editing and 3D-generation workflow / records the generated asset and its provenance / returns the
+mesh to the map with a reproducible placement transform") and pp. 57–58 ask the hacker to do the same list.
+The prize is internship opportunities rather than cash, which frames the track as a recruiting filter:
+execution and explanation of a known algorithm, not novelty.
+
+**Deck p.58 is effectively the grading rubric.** Ten steps: geocode the address · match the authoritative
+footprint · normalize mesh units, axes, orientation and pivot · center and ground the mesh · test likely
+rotations for best footprint alignment · **prefer proportion-preserving uniform scaling** · **allow limited
+non-uniform scaling when necessary** · validate footprint overlap and nearby collisions · store a
+reproducible placement transform · **send uncertain results for manual review**. p.57 names the core
+challenge as correct position, scale, rotation and ground alignment. Treat this list as the definition of
+done for the geometry lane.
+
+**Judging: nobody runs the code.** Science-fair style in NCB (160/260/320/360), **3 minutes to present +
+1 minute of questions**, presented *multiple times* to different panels. Hard gate: the **Devpost entry is
+due 8:00 AM Sunday, September 20** — project description plus demo links judges can open. `spec.md` says
+"3- to 5-minute presentation"; the guide supersedes it, rehearse to three minutes.
+
+Consequences that should drive priorities:
+
+- **The diagnostics are the proof.** No machine verifies the placement; a human looks at the screen for
+  180 seconds. `FitStage` — matrix factorization, IoU, footprint overlay, before/after — is the centerpiece.
+  `ExploreStage` proves nothing about placement correctness and is correctly optional.
+- **The demo runs 5–10 times in a row**, so it must reset in seconds and work on bad conference wifi or
+  none at all. This is what makes the cached sample load-bearing rather than polish, and why the offline
+  `demoGeo()` fallback must be verified with the network actually off.
+- **Never demo a live paid generation as the main flow** — it takes minutes and the slot is three. Show the
+  labeled cached asset; start a fresh job at the top of the demo so it runs visibly while you talk.
+- **Expect the Q&A to probe the honest edges**: L-shaped/concave footprints, facade heading, where the
+  height came from. The `ambiguous` / `inferred` / `flat-assumed` / `review` labels are the strength here,
+  not a weakness — surface them on screen.
+
+**One open question, worth one Discord message.** Deck p.55 claims Procedura "resolves the address and
+authoritative building footprint." If they actually provide that service for the challenge, the repo is
+currently reimplementing their product with Nominatim and Overpass, and the P1/P2 lanes change shape. The
+hacker guide says company-specific details are posted on Discord and mentors are reachable via the help
+desk. Ask; do not assume.
+
 ## Repository state (verified 2026-09-19)
 
 Be precise about this — the two halves have never talked to each other.
@@ -28,9 +80,9 @@ Be precise about this — the two halves have never talked to each other.
 | Area | State |
 | --- | --- |
 | `web/` | Complete 5-stage UI. `npm run build` passes. Runs the **entire pipeline standalone in simulation mode** when `VITE_API_BASE` is unset. |
-| `server/` | Library only, no HTTP surface. `config.py`, `schemas.py`, `storage.py`, `geometry/`, `providers/` import cleanly. **No `app/main.py`, routes, or orchestration/polling loop.** `tests/test_fit.py` covers the four required geometry/export regressions. |
-| Integration | Frontend and backend describe **incompatible contracts** (see below). Nothing is wired. |
-| Assets | No `samples/`. No real generated GLB, no cached demo artifacts anywhere in the repo. |
+| `server/` | **Working pipeline service** (P0 + P1, 2026-09-19). `app/main.py` (assembly + lifespan), `routes.py` (all 7 `/v1` handlers, implemented), `pipeline.py` (orchestration). Drives a fixture job end to end: photo → concept → GLB → fit → export bundle. `ruff check app` clean, and `tests/test_fit.py` (P3) covers the four required geometry/export regressions. |
+| Integration | **Backend done, frontend not yet wired.** Both sides name the same fields (`server/app/schemas.py` ↔ `web/src/lib/api.ts`, verified field-for-field) and the server answers for real, but no stage calls the client yet — `redesign.ts`/`reconstruct.ts` still hold their dead blob `fetch` calls. That is P2. |
+| Assets | `samples/` exists (P4): DDS building photo, OSM way 1174211880 footprint, and a **fixture-generated** concept/model/manifest — labelled synthetic, not Meshy output. Still **no real generated GLB**; no paid generation has run. |
 
 ## Commands
 
@@ -60,8 +112,19 @@ PYTHONPATH=. .venv/bin/python -c "from app.geometry.fit import fit_glb"   # impo
 and ruff installed. The package is **not** pip-installed — imports resolve from the working directory
 (`pythonpath = ["."]` in the pytest config), so run everything from `server/`.
 
-There is **no serve command yet**: `uvicorn app.main:app` fails because `app/main.py` does not exist.
-Whoever writes it should keep that exact entrypoint so this line stops being a lie.
+Serve it with `PIPELINE_PROVIDER=fixture .venv/bin/uvicorn app.main:app --reload --port 8000`. Every
+route is implemented; with the fixture provider it needs no credits and no network.
+
+```bash
+curl -F image=@any.png -F prompt=test -F strength=0.8 -F kind=pipeline \
+     -H 'Idempotency-Key: demo-1' localhost:8000/v1/jobs      # -> 202 JobView
+curl localhost:8000/v1/jobs/{job_id}                          # poll to succeeded
+```
+
+`PIPELINE_FIXTURE_DELAY_SECONDS=10` makes the fixture provider report realistic
+queued → running → progress → succeeded transitions instead of completing instantly. The submit time
+is encoded in the task id, so simulated progress survives a restart the way a real provider's does —
+which is what makes the resume path testable without spending credits.
 
 Env: copy `server/.env.example` → `server/.env`. `PIPELINE_PROVIDER=fixture` for offline work;
 `meshy` + `MESHY_API_KEY` spends real credits.
@@ -96,6 +159,13 @@ Scene frame is **X = East, Y = Up, Z = South**, meters, right-handed. Plan coord
 `server/app/geometry/fit.py` is authoritative: it emits the versioned `PlacementManifest`, validates the
 actual polygon and neighbor overlap, and uses uniform scale. The browser solver remains a clearly labelled
 offline/simulation preview only; it must not certify or overwrite a Pipeline API placement.
+
+**Neither engine currently satisfies deck p.58 on its own**, and that slide is the rubric. It asks for
+bounded non-uniform scaling *and* a manual-review path. `fit.ts` has the bounded non-uniform scale
+(1.25× cap past 8 % divergence) but always returns a result; `fit.py` has the review states and the
+manifest but is uniform-only. The target is the Python engine's strictness, manifest and
+accepted/review/rejected outcomes **plus** the TypeScript engine's bounded non-uniform scale ported over.
+Getting this to one engine that covers all ten p.58 steps is the highest-value geometry work in the repo.
 
 ### Frontend
 
@@ -146,17 +216,68 @@ Keep that honesty signal anywhere simulated output can reach a screen.
 - Polling and page reloads must never start a new paid generation — resume the stored `provider_task_id`.
 - `MESHY_API_KEY` stays server-side. Never expose a provider key under a `VITE_` name.
 
-### Blocking mismatch: frontend expects blobs, backend models jobs
+### The frozen v1 contract (settled by P0, 2026-09-19)
 
-`web/README.md`, `lib/redesign.ts` and `lib/reconstruct.ts` expect **synchronous multipart endpoints
-returning a blob**: `POST /redesign` (`image`, `prompt`, `strength`) → image, `POST /reconstruct`
-(`image`) → GLB. `server/app/schemas.py` models an **async job API** (`JobView`, `job_id`,
-`provider_task_id`, `progress`, polling), and `feasibility-plan.md` §8 sketches `/jobs`, `/jobs/:id`,
-`/jobs/:id/fit`, `/jobs/:id/export`.
+The blob-vs-job mismatch is **resolved: the job API wins.** Meshy generation takes minutes, so the
+synchronous blob shape the frontend originally assumed would time out. A POST returns a job id
+promptly; the client polls.
 
-Meshy generation takes minutes, so a blocking request will time out. Choose the job API and change the
-frontend, or keep the blob shape and accept the limitation. **Settle this before either side writes more
-code** — it is the one interface both halves must agree on.
+```text
+GET  /v1/health                          -> HealthView {provider, live, submissions_used}
+POST /v1/jobs                            -> 202 JobView
+     multipart: image, prompt, strength (0..1), kind (pipeline|redesign|reconstruct)
+     header:    Idempotency-Key -> storage request_key (UNIQUE; a repeat returns the same job)
+GET  /v1/jobs                            -> list[JobView]
+GET  /v1/jobs/{job_id}                   -> JobView            # the poll endpoint
+GET  /v1/jobs/{job_id}/artifacts/{name}  -> bytes              # name: source | concept | model
+POST /v1/jobs/{job_id}/fit               -> PlacementManifest  # body: FitRequest
+GET  /v1/jobs/{job_id}/export            -> application/zip    # storage.bundle()
+```
+
+`server/app/main.py` holds the stubs; `web/src/lib/api.ts` holds the TypeScript mirrors plus
+`createJob` / `getJob` / `pollJob` / `listJobs` / `artifactUrl` / `requestFit` / `exportUrl` / `health`.
+Field names match `schemas.py` character for character — that equality is the contract, so re-check it
+whenever either file changes.
+
+Notes that are load-bearing rather than incidental:
+
+- `artifactUrl(job, name)` takes the **`JobView`**, not a bare id: it resolves through the server's
+  `artifacts` map and returns `null` when the artifact is not ready, so callers cannot fetch a 404.
+- `createJob` requires an explicit `idempotencyKey` from the caller. A client that generated its own
+  would turn a retried POST into a second paid generation.
+- `pollJob` treats `submission-unknown` as **terminal**, alongside `succeeded`/`failed`. It is not a
+  state to retry past; a human reconciles it in the provider account.
+- `ArtifactName` is a `Literal` on both sides, so an unknown name is rejected with 422 before any
+  handler runs — on top of `storage.artifact()`'s server-owned `files` allowlist.
+- `api.ts` also exports `planFromScene` / `sceneFromPlan` / `planRing` / `sceneRing`. Every polygon in
+  the API is **plan metres, (East, North)**; the scene is x/z. The flip is `(East, North) = (x, −z)`,
+  the same one `fit.py` spells `* [1, -1]` and `fit.ts` spells `-z`.
+
+Two shapes exist for the fit body on the TS side because `FitRequest` travels both ways: `FitRequest`
+(all fields required — what the server echoes back inside `PlacementManifest.request`) and
+`FitRequestInit` (pydantic-defaulted fields optional — what you send). Same for `Polygon2DInit`,
+`LocalFrameInit`, `ProvenanceInit`.
+
+### Orchestration (P1)
+
+One asyncio task per job, in the web process — no worker, no queue. That is why `storage.py` assumes
+exactly one application worker. `pipeline.py` owns the loop; `routes.py` only validates, delegates and
+projects. Read `pipeline.py`'s module docstring before changing it: four of its rules exist to protect
+real money, not for tidiness.
+
+- Submission key is `{job_id}:{stage}`, reserved in SQLite **before** the provider call.
+- A reserved key with **no recorded task id** means the process died in the window where the provider
+  may already have accepted and billed. That job goes to `submission-unknown` and stops. It is never
+  resubmitted, and a later restart does not resurrect it.
+- Resume skips any stage that already has a task id, and any stage whose artifact already exists.
+- Bounded backoff wraps `poll` and `download` only. A retried `submit` is a second charge.
+- Downloaded artifacts are re-validated before storage (`image_media` / `validate_glb`) — a provider
+  is not trusted to return what it promised.
+- `stage` after generation is `fit` when a model exists, `complete` when it does not. Fitting is an
+  explicit client call, not part of the loop, because a human supplies the footprint they confirmed.
+
+`GET /v1/jobs/{id}` never starts work. Interrupted jobs resume at **startup**, from their stored task
+id, not because someone polled them.
 
 ## Modular work split
 
@@ -166,9 +287,9 @@ re-derive a split here; edit that file.
 
 Three rules from it that apply to every task in this repo:
 
-- **P0 first.** The HTTP contract (job API, not blobs) is frozen as stubs in `server/app/main.py` and
-  `web/src/lib/api.ts` before any handler or fetch call is written. Both sides use the field names in
-  `schemas.py` verbatim.
+- **P0 and P1 are done** (2026-09-19). The contract is frozen in `server/app/schemas.py` ↔
+  `web/src/lib/api.ts`, and the backend behind it works end to end on the fixture provider. **P2 is
+  the next blocking lane**: the frontend still simulates everything.
 - **One owner per file.** If you need a file your lane does not own, ask its owner rather than editing it.
   `schemas.py` and `web/src/lib/api.ts` are shared — they change in pairs, and only with an announcement.
 - **Report what ran, not what was written.** A lane is done when its check was executed and observed.
@@ -190,9 +311,11 @@ resembles it) and P6 (obtain the sponsor contract). These are the real critical 
   the literal rather than quietly asserting more.
 - **Never present simulated or fixture output as AI generation**, and never animate fake progress over a
   real job. A procedural extrusion is a labeled fallback, not a completed image-to-3D milestone.
-- Working branch is `thangcao`; `main` is the default (`origin`: github.com/thangcaoinus/VTHax14). There is
-  no root `.gitignore` — `web/.gitignore` and `server/.gitignore` cover `node_modules`, `dist`, `.env.local`,
-  `.venv`, `.data` and caches.
+- `main` is the default branch (`origin`: github.com/thangcaoinus/VTHax14). `thangcao` carries the P0+P1
+  backend work. Lanes have also shipped via `feature/<lanes>-<topic>` + PR — that is how P3+P4 landed
+  (PR #1, `feature/p3-p4-geometry-fixture`). Either is fine; merge often and keep `main` green.
+- There is no root `.gitignore` — `web/.gitignore` and `server/.gitignore` cover `node_modules`, `dist`,
+  `.env.local`, `.venv`, `.data`, `tsconfig.tsbuildinfo` and caches.
 
 ## Final step of every task
 
