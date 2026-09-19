@@ -240,6 +240,44 @@ build accounting.
 **Done when:** `samples/` loads end to end **with wifi off**, and the UI labels it as a cached sample
 rather than a fresh generation.
 
+### P4 status: **NOT done** (checked 2026-09-19) — `samples/` exists but proves the wrong thing
+
+`samples/` is real for the footprint half and synthetic for the generation half. `sample-input.json`
+says `provider: "fixture", synthetic: true` and `samples/README.md` says so in words. It proves the
+**offline** path works. It proves nothing about the AI path.
+
+**P4 is not a wiring lane — the wiring has been finished since the first commit.** `meshy.py`
+(submit/poll/download) landed in `04d7338`, `build_provider()` selects it whenever
+`PIPELINE_PROVIDER != fixture`, and P1's pipeline drives it exactly as it drives the fixture. No code
+is missing. What is missing is **credits and a human**:
+
+1. An API key with credits on it.
+2. `PIPELINE_PROVIDER=meshy` + `MESHY_API_KEY=…` actually reaching the process (see the trap below).
+3. One real generation, then a person judging whether the mesh resembles the building.
+4. Re-cache `samples/` from that job and flip `synthetic` to false.
+
+**The trap, and it is a nasty one.** Creating `server/.env` does nothing by itself — nothing in `app/`
+loads it. And the obvious fix does not work either: `uvicorn --env-file .env` **crashes** with
+`ModuleNotFoundError: No module named 'dotenv'`, because `python-dotenv` is not a dependency of this
+project. Both behaviours verified 2026-09-19. Export the variables instead:
+
+```bash
+PIPELINE_PROVIDER=meshy MESHY_API_KEY=msy_... .venv/bin/uvicorn app.main:app --port 8000
+# or:  set -a; . .env; set +a;  .venv/bin/uvicorn app.main:app --port 8000
+curl localhost:8000/v1/health
+```
+
+**`live: true` is the only honest confirmation.** Do not read `provider` — it says `meshy` by default
+even with no key at all. A run showing `provider: meshy, live: false` is configured for nothing and any
+"generation" it produces is a synthetic placeholder.
+
+**What has been de-risked without spending anything:** `server/tests/test_meshy.py` drives the adapter
+against a mocked transport — status mapping, artifact extraction per stage, progress clamping, task-id
+URL encoding, the https/credential/size guards, and above all that an ambiguous failure (5xx, dropped
+connection, missing task id) raises `SubmissionUnknown` rather than something retryable. Five deliberate
+mutations of `meshy.py` were each caught. This cannot prove the live API matches its documentation —
+only credits do that — but the adapter's own logic is no longer unexercised.
+
 ---
 
 ## P5 — Explore, presentation, submission

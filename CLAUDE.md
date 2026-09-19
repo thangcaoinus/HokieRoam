@@ -129,6 +129,21 @@ which is what makes the resume path testable without spending credits.
 Env: copy `server/.env.example` → `server/.env`. `PIPELINE_PROVIDER=fixture` for offline work;
 `meshy` + `MESHY_API_KEY` spends real credits.
 
+**`server/.env` is inert on its own, and `--env-file` does not rescue it.** Nothing in `app/` loads a
+dotenv file, and `uvicorn --env-file` *crashes* with `ModuleNotFoundError: No module named 'dotenv'`
+because `python-dotenv` is not a dependency. Both verified 2026-09-19. Export the variables instead:
+
+```bash
+# either inline
+PIPELINE_PROVIDER=meshy MESHY_API_KEY=msy_... .venv/bin/uvicorn app.main:app --port 8000
+# or source the file
+set -a; . .env; set +a; .venv/bin/uvicorn app.main:app --port 8000
+```
+
+Confirm with `curl localhost:8000/v1/health`: **`live: true`** is the only honest proof the key arrived.
+`provider` alone proves nothing — it reads `meshy` by default even with no key at all, and `live` is
+false in that state. If `live` is false, nothing you see generated is real.
+
 ## Architecture
 
 ### Coordinate contract — the thing not to get wrong
@@ -311,9 +326,11 @@ resembles it) and P6 (obtain the sponsor contract). These are the real critical 
   the literal rather than quietly asserting more.
 - **Never present simulated or fixture output as AI generation**, and never animate fake progress over a
   real job. A procedural extrusion is a labeled fallback, not a completed image-to-3D milestone.
-- `main` is the default branch (`origin`: github.com/thangcaoinus/VTHax14). `thangcao` carries the P0+P1
-  backend work. Lanes have also shipped via `feature/<lanes>-<topic>` + PR — that is how P3+P4 landed
-  (PR #1, `feature/p3-p4-geometry-fixture`). Either is fine; merge often and keep `main` green.
+- `main` is the default branch (`origin`: github.com/thangcaoinus/VTHax14) and holds everything: P3+P4
+  via PR #1, P0+P1 via PR #2. Lanes ship as a branch + PR. `feature/p3-p4-geometry-fixture` was deleted
+  on 2026-09-19 once merged — it had gone stale by 1290 lines and its only unmerged commit was an
+  accidental `tsconfig.tsbuildinfo` artifact. **Branch from `main`, merge often, keep `main` green**;
+  a branch left behind a merge is worse than no branch.
 - There is no root `.gitignore` — `web/.gitignore` and `server/.gitignore` cover `node_modules`, `dist`,
   `.env.local`, `.venv`, `.data`, `tsconfig.tsbuildinfo` and caches.
 
