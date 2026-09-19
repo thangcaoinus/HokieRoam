@@ -81,7 +81,7 @@ Be precise about this — the two halves have never talked to each other.
 | --- | --- |
 | `web/` | Complete 5-stage UI. `npm run build` passes. Runs the **entire pipeline standalone in simulation mode** when `VITE_API_BASE` is unset. |
 | `server/` | **Working pipeline service** (P0 + P1, 2026-09-19). `app/main.py` (assembly + lifespan), `routes.py` (all 7 `/v1` handlers, implemented), `pipeline.py` (orchestration). Drives a fixture job end to end: photo → concept → GLB → fit → export bundle. `ruff check app` clean, and `tests/test_fit.py` (P3) covers the four required geometry/export regressions. |
-| Integration | **Backend done, frontend not yet wired.** Both sides name the same fields (`server/app/schemas.py` ↔ `web/src/lib/api.ts`, verified field-for-field) and the server answers for real, but no stage calls the client yet — `redesign.ts`/`reconstruct.ts` still hold their dead blob `fetch` calls. That is P2. |
+| Integration | **Wired (P2, 2026-09-19).** With `VITE_API_BASE` set, Redesign starts one `pipeline` job via `lib/pipelineJob.ts`, Reconstruct follows the same job and loads its GLB from the server, and a reload re-attaches from localStorage. Observed end to end against the fixture server. **Still local:** `FitStage` runs the browser `solveFit` even on a server mesh — calling `requestFit` for API jobs is P3's open item. |
 | Assets | `samples/` exists (P4): DDS building photo, OSM way 1174211880 footprint, and a **fixture-generated** concept/model/manifest — labelled synthetic, not Meshy output. Still **no real generated GLB**; no paid generation has run. |
 
 ## Commands
@@ -185,19 +185,22 @@ Getting this to one engine that covers all ten p.58 steps is the highest-value g
 ### Frontend
 
 `web/src/store.ts` is a single zustand store; `unlocked()` / `completed()` derive stage gating from which
-artifacts exist. There is no router — the stage id in the store selects the view in `App.tsx`. All
-artifacts live in memory (object URLs for photos/concept, a live `THREE.Object3D` for the mesh), so
-**a page reload loses everything**. Persistence is unbuilt work, not a bug to patch locally.
+artifacts exist. There is no router — the stage id in the store selects the view in `App.tsx`. In simulation mode all
+artifacts live in memory, so a reload loses them. In Pipeline API mode `lib/pipelineJob.ts` persists a
+small session (`groundtruth.session.v1`: job id, key fingerprint, address, footprint, prompt, stage) and
+re-attaches on load with GET only; photo, concept and mesh come back from the job's artifacts.
 
 Stages (`web/src/stages/`):
 
 1. **Ingest** — browser-side Nominatim geocode + Overpass `way["building"](around:140,…)`, both with
    timeouts, falling back to the synthetic L-shaped `demoGeo()` parcel; registers a geohash bucket in
    `localStorage` (`lib/geo.ts`).
-2. **Redesign** — `lib/redesign.ts`: `POST {API}/redesign` when configured, else a deterministic canvas
-   color-grade per preset (`lib/presets.ts`).
-3. **Reconstruct** — `lib/reconstruct.ts`: `POST {API}/reconstruct` when configured, else
-   `buildProcedural()`. The simulated mesh is deliberately emitted **Z-up, centimeters, off-origin and
+2. **Redesign** — API mode: `startJob()` in `lib/pipelineJob.ts` creates one `kind=pipeline` job
+   (Idempotency-Key derived from photo+prompt+strength, persisted before the POST) and `JobPanel`
+   renders the server's real stage/status/progress. Simulation: `simulateRedesign()`, a deterministic
+   canvas color-grade per preset (`lib/presets.ts`), bannered as not AI generation.
+3. **Reconstruct** — API mode: follows the same job and loads its GLB via `loadMeshUrl()`; there is no
+   separate paid reconstruct click. Simulation: `simulateReconstruct()` → `buildProcedural()`. The simulated mesh is deliberately emitted **Z-up, centimeters, off-origin and
    rotated** so the fitting engine has real work to undo — keep that quirk. Also accepts a user
    `.glb`/`.obj`; `unitHeuristic()` guesses units from bounding-box size.
 4. **Fit** — runs `solveFit`, animates a 7-step solver trace into the event log, exports
@@ -205,8 +208,9 @@ Stages (`web/src/stages/`):
 5. **Explore** — R3F canvas, capsule controller (WASD/Shift/Space/mouse-look), lerped chase camera,
    collision against the fitted hull, footprint and neighbor parcels.
 
-The header chip reads **"Local AI simulation"** vs **"Pipeline API connected"** off `VITE_API_BASE`.
-Keep that honesty signal anywhere simulated output can reach a screen.
+The header chip reads **"Local AI simulation"** when `VITE_API_BASE` is unset; otherwise it probes
+`GET /v1/health` and reads `Pipeline API connected · meshy`, `· fixture (synthetic)`, `unreachable` or
+`checking…`. Keep that honesty signal anywhere simulated output can reach a screen.
 
 ### Backend modules
 
@@ -302,9 +306,9 @@ re-derive a split here; edit that file.
 
 Three rules from it that apply to every task in this repo:
 
-- **P0 and P1 are done** (2026-09-19). The contract is frozen in `server/app/schemas.py` ↔
-  `web/src/lib/api.ts`, and the backend behind it works end to end on the fixture provider. **P2 is
-  the next blocking lane**: the frontend still simulates everything.
+- **P0, P1 and P2 are done** (2026-09-19). The contract is frozen in `server/app/schemas.py` ↔
+  `web/src/lib/api.ts`, the backend works end to end on the fixture provider, and the frontend drives
+  real jobs through it. Remaining code gap: `FitStage` should call `requestFit` for API jobs (P3).
 - **One owner per file.** If you need a file your lane does not own, ask its owner rather than editing it.
   `schemas.py` and `web/src/lib/api.ts` are shared — they change in pairs, and only with an announcement.
 - **Report what ran, not what was written.** A lane is done when its check was executed and observed.
