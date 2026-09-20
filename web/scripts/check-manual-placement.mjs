@@ -23,6 +23,8 @@ try {
   await page.getByRole('button', { name: 'Adjust', exact: true }).click()
   const svg = page.getByRole('img', { name: 'Top-down manual placement editor' })
   await svg.waitFor()
+  await svg.scrollIntoViewIfNeeded()
+  await page.waitForTimeout(400)
 
   const iouOf = async () => {
     const t = await page.locator('.stat').filter({ hasText: 'IoU now' }).innerText()
@@ -35,6 +37,7 @@ try {
   await page.mouse.down()
   await page.mouse.move(box.x + box.width / 2 + 70, box.y + box.height / 2 + 40, { steps: 12 })
   await page.mouse.up()
+  await page.waitForTimeout(500)
   const after = await iouOf()
   assert.notEqual(before, after, 'dragging did not change the measured IoU')
 
@@ -48,10 +51,15 @@ try {
   await page.getByRole('button', { name: 'Explore this design', exact: true }).click()
   await page.getByRole('button', { name: 'Walk around', exact: true }).waitFor({ timeout: 60000 })
 
-  // Reset restores the computed placement exactly.
+  // Reset restores the computed placement exactly. Returning to Fit remounts the stage, so the
+  // editor has to be reopened — the correction itself lives in the store, not in that panel.
   await page.getByRole('button', { name: /Fit & Align/ }).click()
+  await page.getByTestId('manual-placement').waitFor()
   await page.getByRole('button', { name: 'Reset to computed', exact: true }).click()
   assert.equal(await page.getByTestId('manual-placement').count(), 0)
+  await page.getByRole('button', { name: 'Adjust', exact: true }).click()
+  await svg.waitFor()
+  await page.waitForTimeout(400)
   assert.equal(Math.round(await iouOf() * 10), Math.round(before * 10))
 
   assert.deepEqual(api, [])

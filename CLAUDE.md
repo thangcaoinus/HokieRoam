@@ -151,6 +151,7 @@ node scripts/check-example.mjs     # static example loads with API + GIS blocked
 node scripts/check-bundle.mjs      # saved-ZIP import, re-export byte-identical, refresh
 node scripts/check-polycount.mjs   # target_polycount UI → request identity, with all API calls intercepted
 node scripts/check-ingest-live.mjs # NETWORK: real Nominatim + Overpass → real footprint → photo → Redesign
+node scripts/check-manual-placement.mjs # drag-to-place changes live IoU, stays labelled manual, resets exactly
 ```
 
 Headless Chromium with software rendering: these prove plumbing, **not** demo-laptop frame rate.
@@ -327,6 +328,24 @@ Stages (`web/src/stages/`):
    and the chosen matrix, and downloads the server's ZIP after re-checking that the saved placement still
    matches what is on screen); everything else renders `PreviewFitStage`, which runs `solveFit`, animates
    the 7-step solver trace and exports `transform-{bucket}.json` plus a map-anchored GLB via `GLTFExporter`.
+**Manual placement (deck p.58 step 10), added 2026-09-20.** `components/PlanEditor.tsx` is a
+top-down review surface: drag to translate, shift-drag to rotate about the footprint centroid, with
+IoU/coverage/spill recomputed live in the browser via the existing `clipPolygon` + `polygonArea`
+helpers (the proxy is convex, so Sutherland–Hodgman against the concave footprint is exact). The
+correction lives in `store.adjust` as `{dx, dz, dyaw}` and is **never merged into the manifest** —
+`adjustedMatrix()` / `adjustedProxy()` compose it on top for display, walking and the viewer, while
+the computed verdict, the metrics panel and the export keep describing the server's result. A
+`manual-placement` banner says so on screen. `store.ts` drops the correction whenever the placement
+it was expressed against is replaced or invalidated, since a delta against a different transform is
+meaningless.
+
+**Walk-mode fixes (2026-09-20).** `camPitch` only moved the camera's *height* while the camera did
+`lookAt(player)`, so the top of a 20–50 m building was permanently off-screen; pitch now also lifts
+the look target (`lookLift`) and the clamp widened from `[-0.2, 0.9]` to `[-0.75, 1.0]`. The
+footprint polygon was also in the **collider** list, walling the player out of empty ground wherever
+the building did not fill its own footprint — it is a drawn reference, not geometry, and only real
+volume collides now. `spawnPoint` uses the same set.
+
 5. **Explore** — R3F canvas; opens in **orbit**, offers exterior **walk-around** (capsule controller,
    WASD/Shift/Space/mouse-look, lerped chase camera, collision against the fitted hull, footprint and
    neighbour parcels) and a reset-camera action. A raw-model toggle inspects the asset without the
