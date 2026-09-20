@@ -13,6 +13,28 @@ PLAYWRIGHT_MODULE=playwright-core CHECK_WEB=http://localhost:5174 node scripts/c
 PLAYWRIGHT_MODULE=playwright-core CHECK_WEB=http://localhost:5174 node scripts/capture-assets.mjs 02
 ```
 
+## Demo video
+
+| File | Length | What it is |
+| --- | --- | --- |
+| `hokieroam-demo.mp4` | 2:53 · 1920×1080 · H.264 · 41 MB | The **Devpost demo video**. Subtitled, no voiceover. Upload to YouTube and paste the link into the Devpost video field — Devpost takes a video URL, not a file, so this is not part of the image gallery above. |
+
+Recorded 2026-09-20 by `web/scripts/demo/` against the running app in headed Chrome (real Metal GPU,
+not SwiftShader). Subtitles and title cards are injected into the page as DOM and styled from the
+app's own tokens, so they are captured natively rather than burned in afterwards.
+
+Beats: cached Burruss example and orbit → the measured placement (73.1 % IoU, **rejected**, on screen)
+→ walk mode → sandbox with three models, then walk *that* scene → a real address, three Gilbert Place
+photographs and a futuristic prompt → **a genuinely new Meshy job**, submitted on camera and running
+live → cut → the returned model fitted to the real OSM footprint at **61.2 % IoU, rejected**.
+
+The same honesty rule as the images applies, and it cost a take: one recording resolved the address
+while Overpass was unreachable, so the fit scored **73.9 % against the synthetic demo parcel** rather
+than the authoritative footprint. That take was discarded, and `seg-finish.mjs` now retries the lookup
+and aborts rather than record a fit measured against a fake footprint. Neither verdict in the film was
+tuned; the generation cost 4 submissions and re-takes cost none, because the finish segment replays the
+finished job by idempotency key instead of paying twice.
+
 ## Suggested upload order
 
 | File | Size | What it shows |
