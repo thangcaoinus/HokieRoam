@@ -1,0 +1,33 @@
+{
+  "job_id": "2b0e470749c54d3680677470376250a6",
+  "kind": "pipeline",
+  "provider": "meshy",
+  "provider_tasks": {
+    "redesign": "01a0bdea-d962-7576-a846-4ea121b018c9",
+    "redesign_2": "01a0bdec-f243-72d3-a230-d66677c6c197",
+    "redesign_3": "01a0bded-7b6d-775e-9edc-725dda3018f9",
+    "redesign_4": "01a0bded-adc2-74bd-aac6-4f4cc65b2efd",
+    "reconstruct": "01a0bded-f4e7-72f7-a528-7799ef77e954"
+  },
+  "settings": {
+    "prompt": "Burruss Hall reimagined as a solarpunk utopia: living green walls and hanging gardens cascading down the facade, golden brass and warm timber accents, curved solar canopies over the roofline, wind sculptures, wildflower meadow on the lawn, bright optimistic afternoon sun. Keep the central tower and the symmetric wings so it is still unmistakably Burruss Hall - keep the original architectural geometry.",
+    "strength": 0.8,
+    "views": 4,
+    "target_polycount": 60000,
+    "provider": "meshy",
+    "image_model": "nano-banana",
+    "mesh_model": "meshy-6"
+  },
+  "warnings": [],
+  "sha256": {
+    "source": "09621df9ee8bd8cb86095382fe0b17201ed76fc45f58ee38469de4681412d72d",
+    "source_2": "f34cc603d99232eb8af40e65599cab8b004956b70aad64303d5f1872671cf749",
+    "source_3": "fc0c74d657f85fa645509271593f2f517833c6b5074e12f952cd5b3131734d77",
+    "source_4": "4fdcbca02886c022cae22ecf9008bb53f377e8767cbab8b87f03993bb505a6af",
+    "concept": "c48b6ad4e1cb0aed23fee637e2b48a1b1ead62564bc8c58bc6612a60b03ad79f",
+    "concept_2": "335f35cd4795cbd1832f01f2482578c9700e1a716f48d407a3227a41f3e23070",
+    "concept_3": "db0bfe10747d25d38738b5e0e067cf0f89cabe7ae171aa0401a7ae0bcdd2e1d9",
+    "concept_4": "5356ba69020af4b0b0b28012241d7385e7b25a47ab29135183e9efe1f33e0278",
+    "model": "6ad4e574ebebb908f9188b6f7d4e986d4543cfb429927f0f4577e73162bd1efa"
+  }
+}

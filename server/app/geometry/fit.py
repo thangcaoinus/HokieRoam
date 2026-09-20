@@ -95,7 +95,7 @@ def fit_glb(data: bytes, request: FitRequest) -> PlacementManifest:
     # fit is -- and this transform chain's own floating-point noise is ~1e-5 m2 of spill,
     # ten times the 1e-6 m default tolerance. Gating on it rejected 4 of 12 geometrically
     # perfect fits (IoU 99.99999%) at random. Gate on bounded spill area instead, which is
-    # what feasibility-plan.md 5.5 actually asks for.
+    # what internal/feasibility-plan.md 5.5 actually asks for.
     # Neighbour overlap is a hard physical constraint -- a building cannot occupy another
     # building -- so it filters what may be selected. Spill does not: it decides whether the
     # best placement is good enough, never which placement is reported. Filtering on spill

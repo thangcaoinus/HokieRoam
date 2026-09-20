@@ -1,0 +1,23 @@
+# Planning, status and pitch documents. They were the working record of a 36-hour build and they
+# contradict each other by design — nine overlapping plans, several superseded. Kept on disk so the
+# team can still read them, out of the repo so the public front is the README and the code.
+internal/
+
+# Agent-harness mirrors, not project code. These are generated copies of a locally installed skill
+# and of CLAUDE.md; nothing in the product reads them and nothing regenerates them here.
+.agents/
+.codex/
+.impeccable/
+AGENTS.md
+.claude/skills/
+.claude/agents/
+
+# Raw per-job provider downloads: duplicated byte-for-byte into each sample's result/ and bundle.zip.
+samples/*/.data/
+
+# Local scratch
+*.log
+.DS_Store
+
+# Scratch copies made while building without VITE_API_BASE.
+*.bak

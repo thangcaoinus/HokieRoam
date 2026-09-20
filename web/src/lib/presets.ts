@@ -40,4 +40,24 @@ export const PRESETS: StylePreset[] = [
     swatch: ['#0a0718', '#7b2cff', '#2ef2ff'],
     track: 'Exploration',
   },
+  // The four above are restrained, and three of them are some flavour of dark and damaged. These
+  // two exist because the generated results proved the image model holds a landmark's identity
+  // through a far more aggressive restyle than the presets were asking for -- as long as the
+  // prompt names the building's own features. Both shipped as real generations of Burruss Hall.
+  {
+    id: 'fantasy',
+    name: 'Enchanted Citadel',
+    tagline: 'High-fantasy spires and stained glass',
+    prompt: 'enchanted high-fantasy citadel, pale gold and ivory stone, soaring slender spires crowned with banners, stained-glass rose windows glowing from within, floating lanterns, carved dragons and filigree along the parapets, magical violet dusk light, keep original architectural geometry',
+    swatch: ['#1b1338', '#6b4bd8', '#f0d089'],
+    track: 'Exploration',
+  },
+  {
+    id: 'solarpunk',
+    name: 'Solarpunk Bloom',
+    tagline: 'Hanging gardens and brass canopies',
+    prompt: 'solarpunk utopia, living green walls and hanging gardens cascading down the facade, golden brass and warm timber accents, curved solar canopies over the roofline, wind sculptures, wildflower meadow, bright optimistic afternoon sun, keep original architectural geometry',
+    swatch: ['#16401f', '#4f9d4a', '#f2c94c'],
+    track: 'Exploration',
+  },
 ]

@@ -42,18 +42,18 @@ class FitRequest(Contract):
     # The default is tied to min_iou rather than picked to taste: with a convex proxy the
     # achievable IoU is capped at roughly 1 - spill_fraction, so allowing 15% spill is the
     # same statement as requiring 0.85 IoU. Revisit it when the proxy stops being convex.
-    # A tunable product policy (feasibility-plan.md 5.6), not a measurement.
+    # A tunable product policy (internal/feasibility-plan.md 5.6), not a measurement.
     max_spill_fraction: float = Field(default=0.15, ge=0, le=1)
     # An independently recorded building height, e.g. OSM's `height` tag. Uniform scale ties
     # height to the plan fit, which renders a 20.7 m building at 48 m. When a height is supplied
-    # the vertical scale is solved from it instead (feasibility-plan.md 5.4) and the manifest
-    # downgrades `height` from "inferred" to "source-record". It never changes the plan fit.
+    # the vertical scale is solved from it instead (internal/feasibility-plan.md 5.4) and the
+    # manifest downgrades `height` from "inferred" to "source-record". Never changes the plan fit.
     measured_height_m: float | None = Field(default=None, gt=0, le=1000)
     # How far vertical scale may depart from the proportion-preserving uniform scale before the
     # record is treated as describing something else. Deck p.58 says to PREFER uniform scaling and
-    # only ALLOW limited non-uniform scaling; feasibility-plan.md 5.4 proposes 1.15-1.25. A record
-    # that disagrees by more than this is reported, never forced: an OSM `height` is often the
-    # eaves of the main block while the mesh includes a tower, and forcing it squashes the model.
+    # only ALLOW limited non-uniform scaling; internal/feasibility-plan.md 5.4 proposes 1.15-1.25.
+    # A record that disagrees by more than this is reported, never forced: an OSM `height` is
+    # often the eaves of the main block while the mesh includes a tower, and forcing it squashes it.
     max_height_correction: float = Field(default=1.25, ge=1, le=4)
 
 

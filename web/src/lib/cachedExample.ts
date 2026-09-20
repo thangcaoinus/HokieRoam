@@ -5,7 +5,10 @@ import { placementMatches } from './placement'
 import { loadMeshUrl } from './reconstruct'
 
 /** Example ids that ship as static artifacts under web/public/examples/<id>/. */
-export const EXAMPLE_IDS = ['burruss', 'dds'] as const
+export const EXAMPLE_IDS = [
+  'burruss', 'burruss-scorched', 'burruss-noir', 'burruss-fantasy', 'burruss-solarpunk',
+  'gilbert-scorched', 'dds',
+] as const
 export type ExampleId = (typeof EXAMPLE_IDS)[number]
 /** The one the "Load completed real example" button opens. */
 export const DEFAULT_EXAMPLE: ExampleId = 'burruss'
@@ -24,6 +27,12 @@ export const EXAMPLE_PATH = examplePath(DEFAULT_EXAMPLE)
  */
 export const EXAMPLE_POSTERS: Record<ExampleId, { title: string; photo: string }> = {
   burruss: { title: 'Burruss Hall', photo: 'source.jpg' },
+  // The same building and the same photograph, restyled by prompt alone.
+  'burruss-scorched': { title: 'Burruss Hall', photo: 'source.jpg' },
+  'burruss-noir': { title: 'Burruss Hall', photo: 'source.jpg' },
+  'burruss-fantasy': { title: 'Burruss Hall', photo: 'source.jpg' },
+  'burruss-solarpunk': { title: 'Burruss Hall', photo: 'source.jpg' },
+  'gilbert-scorched': { title: 'Gilbert Place', photo: 'source.jpg' },
   dds: { title: 'the Data and Decision Sciences Building', photo: 'source.png' },
 }
 export const EXAMPLE_TITLE = EXAMPLE_POSTERS[DEFAULT_EXAMPLE].title

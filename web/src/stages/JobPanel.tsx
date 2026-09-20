@@ -1,4 +1,4 @@
-// Live status of the Pipeline API job (work-split.md P2). Renders ONLY what the server reports —
+// Live status of the Pipeline API job (internal/work-split.md P2). Renders ONLY what the server reports —
 // stage, status, progress — never a timed animation. Progress the provider does not report is
 // shown as an indeterminate bar, not a guessed percentage.
 import { AlertTriangle, Check, Download, RefreshCw, XCircle } from 'lucide-react'

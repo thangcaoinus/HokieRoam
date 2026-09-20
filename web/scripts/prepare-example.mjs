@@ -17,6 +17,22 @@ import { createHash } from 'node:crypto'
 const root = fileURLToPath(new URL('../../', import.meta.url))
 const TARGET_TRIANGLES = 60000
 
+/** Burruss restyles differ only by sample directory, preset and blurb; everything else is shared. */
+const styleOfBurruss = (id, presetId, description) => ({
+  id,
+  model: `samples/${id}/result/model.glb`,
+  generation: `samples/${id}/result/generation.json`,
+  bundle: `samples/${id}/bundle.zip`,
+  photos: ['source.jpg', 'source_2.jpg', 'source_3.jpg', 'source_4.jpg'],
+  concepts: ['concept.png', 'concept_2.png', 'concept_3.png', 'concept_4.png'],
+  footprint: 'web/scripts/burruss-footprint.json',
+  title: 'Burruss Hall',
+  address: '800 Drillfield Drive, Blacksburg, VA',
+  featureId: 'way/32963472',
+  presetId,
+  description,
+})
+
 const EXAMPLES = {
   // Meshy already met the 60k target here, so decimation is a no-op and the asset ships as-is.
   burruss: {
@@ -45,6 +61,33 @@ const EXAMPLES = {
     address: '727 Prices Fork Road, Blacksburg, VA',
     presetId: 'campus',
     description: 'Completed real generation, locally simplified for browser viewing. Placement needs review.',
+  },
+  // One building, five worlds. Every entry below reuses burruss-footprint.json and way/32963472
+  // unchanged: same photographs, same authoritative footprint, only the prompt differs, so the
+  // IoU spread across them measures what the restyle cost the geometry rather than noise.
+  'burruss-scorched': styleOfBurruss('burruss-scorched', 'scorched',
+    'Scorched Nebraska: the sponsor track\u2019s own world, generated from the same four photographs.'),
+  'burruss-noir': styleOfBurruss('burruss-noir', 'noir',
+    'Neon Noir. The 3D submission froze as submission-unknown and was recovered by hand after reconciling with the provider.'),
+  'burruss-fantasy': styleOfBurruss('burruss-fantasy', 'fantasy',
+    'Enchanted Citadel: the most aggressive restyle in the set, and the landmark still survives it.'),
+  'burruss-solarpunk': styleOfBurruss('burruss-solarpunk', 'solarpunk',
+    'Solarpunk Bloom: the optimistic future, to show the range is not only ruin.'),
+  // A second building, same apocalypse prompt: 1936 collegiate gothic against a 2024 research
+  // building. Its footprint was recovered from the live Overpass lookup stored in the job ledger.
+  'gilbert-scorched': {
+    id: 'gilbert-scorched',
+    model: 'samples/gilbert-scorched/result/model.glb',
+    generation: 'samples/gilbert-scorched/result/generation.json',
+    bundle: 'samples/gilbert-scorched/bundle.zip',
+    photos: ['source.jpg', 'source_2.jpg', 'source_3.jpg'],
+    concepts: ['concept.png'],
+    footprint: 'web/scripts/gilbert-footprint.json',
+    title: 'Gilbert Place',
+    address: '220 Gilbert Street, Blacksburg, VA',
+    featureId: 'way/43972334',
+    presetId: 'scorched',
+    description: 'The same post-apocalyptic prompt on a modern research building. Placement is measured and shown honestly.',
   },
 }
 

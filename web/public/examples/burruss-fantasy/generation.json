@@ -1,0 +1,44 @@
+{
+  "job_id": "65fee0d27e68477e972a02464d31f7f0",
+  "kind": "pipeline",
+  "provider": "meshy",
+  "provider_tasks": {
+    "redesign": "01a0bdea-d93e-7678-b894-f35713e1f3ce",
+    "redesign_2": "01a0bdeb-22a9-72a6-ac52-085260d831a0",
+    "redesign_3": "01a0bdeb-8820-7027-a8a3-0d40de8b17f8",
+    "redesign_4": "01a0bdeb-b8e0-76aa-9b84-e63899f49e87",
+    "reconstruct": "01a0bdec-c832-779c-9627-9b4eb56f61c4"
+  },
+  "settings": {
+    "prompt": "Burruss Hall reimagined as an enchanted high-fantasy citadel: pale gold and ivory stone, soaring slender spires crowned with banners, stained-glass rose windows glowing from within, floating lanterns in the air, carved dragons and filigree along the parapets, magical violet dusk light. Keep the central tower and the symmetric wings so it is still unmistakably Burruss Hall - keep the original architectural geometry.",
+    "strength": 0.8,
+    "views": 4,
+    "target_polycount": 60000,
+    "provider": "meshy",
+    "image_model": "nano-banana",
+    "mesh_model": "meshy-6"
+  },
+  "warnings": [],
+  "sha256": {
+    "source": "09621df9ee8bd8cb86095382fe0b17201ed76fc45f58ee38469de4681412d72d",
+    "source_2": "f34cc603d99232eb8af40e65599cab8b004956b70aad64303d5f1872671cf749",
+    "source_3": "fc0c74d657f85fa645509271593f2f517833c6b5074e12f952cd5b3131734d77",
+    "source_4": "4fdcbca02886c022cae22ecf9008bb53f377e8767cbab8b87f03993bb505a6af",
+    "concept": "c0f3643af7d74765952b2f0a0982bf41175f72bc79944701aabfb37f26b7f87d",
+    "concept_2": "0f6ac71655bee1605c831f8e4665ec22af61fdc06b91986cd526320f4520b545",
+    "concept_3": "c4b5687b2b133f7579357be62437b858e34f4cb02afaafa40f93db5dafc451c3",
+    "concept_4": "181a543946e8ffa5af40bda30799be851232fd0d97b88162c2ad38a2963ebfba",
+    "model": "22989c1c16b1b1c8a14808ce92c5b9e6edc306347dffb37f7c0c3f2f4f7fb9ff"
+  },
+  "derived_asset": {
+    "method": "gltf-transform simplify / meshoptimizer",
+    "ratio": 0.9972906936156775,
+    "error": 0.005,
+    "source_triangles": 60163,
+    "triangles": 59999,
+    "source_bytes": 19093984,
+    "bytes": 19088084,
+    "source_sha256": "0232f716ac3b978643fbfeacbfd1cbed3fa24031c37a3035ccd7b3da11616767",
+    "asset_sha256": "22989c1c16b1b1c8a14808ce92c5b9e6edc306347dffb37f7c0c3f2f4f7fb9ff"
+  }
+}

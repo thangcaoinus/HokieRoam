@@ -1,5 +1,5 @@
 import { promptError } from './creativePrompt'
-// Drives one Pipeline API job from the UI (work-split.md P2). Only used when VITE_API_BASE is set;
+// Drives one Pipeline API job from the UI (internal/work-split.md P2). Only used when VITE_API_BASE is set;
 // with it unset the stages keep their local simulation path.
 //
 // One `pipeline` job covers both Redesign and Reconstruct: the server runs redesign → reconstruct
@@ -34,7 +34,7 @@ import { loadMeshUrl } from './reconstruct'
 import { BUNDLE_KEY, EXAMPLE_KEY, SESSION_KEY, useStore, type StageId } from '../store'
 
 // ---------------------------------------------------------------------------
-// Session persistence (localStorage is enough — work-split.md P2)
+// Session persistence (localStorage is enough — internal/work-split.md P2)
 // ---------------------------------------------------------------------------
 
 
@@ -313,7 +313,14 @@ export async function resumeSession() {
       const url = new URL(window.location.href)
       url.searchParams.delete('example')
       history.replaceState(null, '', url)
-    } catch (e) { useStore.getState().log(`example › ${(e as Error).message}`, 'warn') }
+    } catch (e) {
+      // The ?example= link is the path a judge opens, so a failed hash check has to be visible on
+      // screen and not only in the event log: silence here reads as "nothing happened" rather than
+      // "this example was refused", which is the opposite of what the validation is for.
+      const message = (e as Error).message
+      useStore.setState({ jobError: `Could not open the cached example: ${message}` })
+      useStore.getState().log(`example › ${message}`, 'warn')
+    }
     return
   }
   if (!apiConfigured()) return

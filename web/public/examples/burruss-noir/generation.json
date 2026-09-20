@@ -1,0 +1,45 @@
+{
+  "job_id": "017e2d59762d489db0c06401271bdc9b",
+  "kind": "pipeline",
+  "provider": "meshy",
+  "provider_tasks": {
+    "redesign": "01a0bde3-9fc7-7565-9230-832727c9c40f",
+    "redesign_2": "01a0bde4-440e-71da-91cd-880aba5284bb",
+    "redesign_3": "01a0bde4-c28a-733d-9485-79c9e35c458b",
+    "redesign_4": "01a0bde4-f97d-7419-9cd0-aa148f917b7e",
+    "reconstruct": "01a0bde9-fa27-77b1-8199-6817349f53ad"
+  },
+  "settings": {
+    "prompt": "Burruss Hall at cyberpunk night: rain-soaked facade, neon signage, magenta and cyan rim light, wet reflections on the plaza, holographic glow in the windows. Still unmistakably Burruss Hall - keep the central tower, the symmetric wings and the original architectural geometry.",
+    "strength": 0.8,
+    "views": 4,
+    "target_polycount": 60000,
+    "provider": "meshy",
+    "image_model": "nano-banana",
+    "mesh_model": "meshy-6"
+  },
+  "warnings": [],
+  "recovery": "3D submission recovered by hand after a submission-unknown freeze; the provider task list was reconciled first and showed no task, so nothing had been billed and this was a first submission, not a retry.",
+  "derived_asset": {
+    "method": "none \u2014 source already within the triangle budget",
+    "ratio": 1,
+    "error": 0,
+    "source_triangles": 59392,
+    "triangles": 59392,
+    "source_bytes": 20637708,
+    "bytes": 20637680,
+    "source_sha256": "c0b7e3e4efe58054a2245872d47f9f9ffd5b45a85b4aefa5c0e66bad66b38a52",
+    "asset_sha256": "3920964005a042fb7e4da24dc3693ad2002a5410a086656960e20f0a7853d93e"
+  },
+  "sha256": {
+    "source": "09621df9ee8bd8cb86095382fe0b17201ed76fc45f58ee38469de4681412d72d",
+    "source_2": "f34cc603d99232eb8af40e65599cab8b004956b70aad64303d5f1872671cf749",
+    "source_3": "fc0c74d657f85fa645509271593f2f517833c6b5074e12f952cd5b3131734d77",
+    "source_4": "4fdcbca02886c022cae22ecf9008bb53f377e8767cbab8b87f03993bb505a6af",
+    "concept": "ddebe199dc8480ebf10f7f93f9952c61618571b7dc0255a8698cea302b0201c7",
+    "concept_2": "3e1805e9ea57de05004e59e9f00f40c50e8cf13b0097d9832b240ca1d3c9af63",
+    "concept_3": "7ea14e10355e1e61d9d0c9df775c9446b5570c4c809411ef0cfc4296f101d7b8",
+    "concept_4": "579fc58115dddf8a81b1850a245aaf26b02c1e25f021a5485ffa755565b2dfe0",
+    "model": "3920964005a042fb7e4da24dc3693ad2002a5410a086656960e20f0a7853d93e"
+  }
+}

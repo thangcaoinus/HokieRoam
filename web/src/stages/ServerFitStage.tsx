@@ -5,7 +5,7 @@ import { fitRequest, manifestPlan, placementMatches } from '../lib/placement'
 import PlacedScene from '../components/PlacedScene'
 import MatrixView from '../components/MatrixView'
 import PlanEditor from '../components/PlanEditor'
-import { EXAMPLE_PATH } from '../lib/cachedExample'
+import { EXAMPLE_IDS, EXAMPLE_PATH, examplePath } from '../lib/cachedExample'
 
 export default function ServerFitStage() {
   const s = useStore()
@@ -44,7 +44,12 @@ export default function ServerFitStage() {
     try {
       if (cached) {
         const a = document.createElement('a')
-        a.href = s.bundle?.url ?? `${EXAMPLE_PATH}/bundle.zip`; a.download = s.bundle?.name ?? `hokieroam-${mesh.meta.exampleId ?? 'example'}.zip`; a.click()
+        // Per loaded example, never the default: EXAMPLE_PATH is burruss, so a constant here
+        // exported Burruss Hall's model and placement under the open example's filename.
+        // Narrowed through EXAMPLE_IDS: meta.exampleId is a plain string on MeshAsset.
+        const id = EXAMPLE_IDS.find((e) => e === mesh.meta.exampleId)
+        a.href = s.bundle?.url ?? (id ? `${examplePath(id)}/bundle.zip` : `${EXAMPLE_PATH}/bundle.zip`)
+        a.download = s.bundle?.name ?? `hokieroam-${id ?? 'example'}.zip`; a.click()
         return
       }
       // Another tab may have refitted this job. Never export a different matrix silently.

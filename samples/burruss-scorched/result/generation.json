@@ -1,0 +1,33 @@
+{
+  "job_id": "cc4ba21c4a2940548d993b02ce79e3b5",
+  "kind": "pipeline",
+  "provider": "meshy",
+  "provider_tasks": {
+    "redesign": "01a0bde3-a013-725f-87ea-77837e73d3f0",
+    "redesign_2": "01a0bde4-d24e-70d9-a998-39e5de3a89c5",
+    "redesign_3": "01a0bde5-f6de-7553-9ffd-b6942bdf95d8",
+    "redesign_4": "01a0bde6-5660-7747-b108-49220944b289",
+    "reconstruct": "01a0bde6-8b7a-7508-9c8d-7218121c7c25"
+  },
+  "settings": {
+    "prompt": "Burruss Hall as a post-apocalyptic ruin: scorched stone, soot-stained facade, shattered windows, rusted steel, blowing dust, harsh amber sunlight, dead trees. Still unmistakably Burruss Hall - keep the central tower, the symmetric wings and the original architectural geometry.",
+    "strength": 0.8,
+    "views": 4,
+    "target_polycount": 60000,
+    "provider": "meshy",
+    "image_model": "nano-banana",
+    "mesh_model": "meshy-6"
+  },
+  "warnings": [],
+  "sha256": {
+    "source": "09621df9ee8bd8cb86095382fe0b17201ed76fc45f58ee38469de4681412d72d",
+    "source_2": "f34cc603d99232eb8af40e65599cab8b004956b70aad64303d5f1872671cf749",
+    "source_3": "fc0c74d657f85fa645509271593f2f517833c6b5074e12f952cd5b3131734d77",
+    "source_4": "4fdcbca02886c022cae22ecf9008bb53f377e8767cbab8b87f03993bb505a6af",
+    "concept": "f0c735e0303c3c4d516626208e60f4b7346a87e1a4055031b79b78d0fd70f467",
+    "concept_2": "1c61b716e578b0f701323c4e6ae297ac4bc5aef6e9ef0293e38195ccbafb56d9",
+    "concept_3": "5122a28c5364f0520cdea9bf3f725f65d1d5e7b8ddf0e5b8c0f35502c45b299c",
+    "concept_4": "5255fa4419fa9829cd9c363c74ca7d4887452bf28d85db5547b383c48d6e223d",
+    "model": "1a91ff171c05d135c2b22297dfe467581fecabfb74eab74697401687388f9938"
+  }
+}

@@ -1,5 +1,5 @@
 import { promptError } from './creativePrompt'
-// Client for the HokieRoam pipeline API — the frozen v1 contract (work-split.md P0).
+// Client for the HokieRoam pipeline API — the frozen v1 contract (internal/work-split.md P0).
 //
 // The types below mirror `server/app/schemas.py` character for character. If a name changes on one
 // side it changes on the other, in the same commit: these two files are the shared contract and

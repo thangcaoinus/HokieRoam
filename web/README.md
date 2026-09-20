@@ -34,14 +34,34 @@ to an installed Playwright package and `CHECK_WEB` to override the server URL if
 
 ## Completed real example
 
-Click **Load completed real example**, or open `/?example=dds`. Static files in
-`public/examples/dds/` include source/concept images, the simplified Meshy model, recomputed placement,
-and an export ZIP. Orbit, walk, source/prompt inspection, export and refresh require no API or GIS.
-The rejected placement remains visible.
+Seven ship, each under `public/examples/<id>/` with source and concept images, the model,
+a recomputed placement and an export ZIP. Orbit, walk, source/prompt inspection, export and refresh
+require no API and no GIS. Every measured verdict stays visible, including the rejections.
 
-Run `npm run prepare:example` to rebuild the derivative from `samples/live/` (requires the server's
-Python environment). The script records hashes and settings, reduces 1,746,050 triangles to 59,962
-and the GLB from 62.5 MB to 12.9 MB, then fits the changed geometry again. Originals remain untouched.
+| id | Building | Style | Placement | IoU |
+| --- | --- | --- | --- | --- |
+| `burruss` | Burruss Hall | Medieval ruin | rejected | 73.13 % |
+| `burruss-solarpunk` | Burruss Hall | Solarpunk Bloom | rejected | 70.56 % |
+| `burruss-noir` | Burruss Hall | Neon Noir | rejected | 70.41 % |
+| `burruss-fantasy` | Burruss Hall | Enchanted Citadel | rejected | 69.90 % |
+| `burruss-scorched` | Burruss Hall | Scorched Nebraska | rejected | 59.60 % |
+| `gilbert-scorched` | Gilbert Place | Scorched Nebraska | review | 33.67 % |
+| `dds` | Data and Decision Sciences | Glass retrofit | rejected | 52.62 % |
+
+`burruss` is `DEFAULT_EXAMPLE`, so it is what the **Load completed real example** button opens; the
+rest open by `/?example=<id>`. The five Burruss rows share one footprint (OSM way/32963472) and one
+set of four photographs and differ only by prompt, so the IoU spread measures what each restyle cost
+the geometry.
+
+Rebuild any of them with `node scripts/prepare-example.mjs <id>` (requires the server's Python
+environment). The script records hashes and settings, decimates only when the source exceeds the
+60k-triangle budget — `dds` drops 1,746,050 triangles to 59,962 and 62.5 MB to 12.9 MB, while the
+Burruss set arrives within budget — then fits the resulting geometry again. Originals are never
+modified.
+
+Adding an id means editing `EXAMPLES` in `scripts/prepare-example.mjs`, plus `EXAMPLE_IDS` and
+`EXAMPLE_POSTERS` in `src/lib/cachedExample.ts`; the posters map is a total `Record`, so the build
+fails until the new row exists.
 
 To verify the static production flow:
 

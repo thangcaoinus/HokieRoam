@@ -1,0 +1,11 @@
+{
+  "method": "none — source already within the triangle budget",
+  "ratio": 1,
+  "error": 0,
+  "source_triangles": 59392,
+  "triangles": 59392,
+  "source_bytes": 20637708,
+  "bytes": 20637680,
+  "source_sha256": "c0b7e3e4efe58054a2245872d47f9f9ffd5b45a85b4aefa5c0e66bad66b38a52",
+  "asset_sha256": "3920964005a042fb7e4da24dc3693ad2002a5410a086656960e20f0a7853d93e"
+}

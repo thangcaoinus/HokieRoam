@@ -20,8 +20,12 @@ try {
  page.on('pageerror',e=>errors.push(e.message))
  page.on('request',r=>{if(r.url().includes('/v1/'))apiRequests.push(r.url())})
  await page.route('**/*',route=>new URL(route.request().url()).origin===new URL(url).origin?route.continue():route.abort())
- await page.goto(url)
- await page.getByRole('button',{name:'Load completed real example',exact:true}).click()
+ // The entry button opens DEFAULT_EXAMPLE only, so asserting another id against it compared one
+ // building's screen with another's manifest. Non-default ids come in by ?example=, the same way
+ // a judge opens them.
+ const isDefault=id==='burruss'
+ await page.goto(isDefault?url:`${url}/?example=${id}`)
+ if(isDefault) await page.getByRole('button',{name:'Load completed real example',exact:true}).click()
  await page.getByRole('button',{name:'Walk around',exact:true}).waitFor({timeout:60000})
  assert.ok(await page.getByText('Cached real example · Meshy',{exact:true}).isVisible())
  await page.waitForTimeout(1500)
@@ -59,7 +63,8 @@ with zipfile.ZipFile(sys.argv[1]) as z:
   data.placement.asset_sha256='0'.repeat(64)
   await route.fulfill({response,json:data})
  })
- await page.getByRole('button',{name:'Load completed real example',exact:true}).click()
+ if(isDefault) await page.getByRole('button',{name:'Load completed real example',exact:true}).click()
+ else await page.goto(`${url}/?example=${id}`)
  await page.getByRole('alert').filter({hasText:'does not match'}).waitFor({timeout:60000})
  assert.equal(await page.evaluate(()=>localStorage.getItem('groundtruth.example.v1')),null)
  assert.deepEqual(apiRequests,[])

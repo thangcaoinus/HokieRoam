@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "job_id": "dce1b04343eb4bb2b3a2804e45f77812",
+  "kind": "pipeline",
+  "provider": "meshy",
+  "status": "succeeded",
+  "stage": "fit",
+  "provider_task_id": null,
+  "provider_tasks": {
+    "redesign": "01a0bde3-a01e-7280-8603-3c9888db0f90",
+    "redesign_2": "01a0bde3-ddfc-717b-9750-258b5c06cc8a",
+    "redesign_3": "01a0bde4-2253-77fc-a7c7-e70072286fd4",
+    "reconstruct": "01a0bde4-6bd0-7784-9408-a06f6e11016e"
+  },
+  "progress": 100,
+  "target_polycount": 60000,
+  "artifacts": {
+    "source": "/v1/jobs/dce1b04343eb4bb2b3a2804e45f77812/artifacts/source",
+    "source_2": "/v1/jobs/dce1b04343eb4bb2b3a2804e45f77812/artifacts/source_2",
+    "source_3": "/v1/jobs/dce1b04343eb4bb2b3a2804e45f77812/artifacts/source_3",
+    "concept": "/v1/jobs/dce1b04343eb4bb2b3a2804e45f77812/artifacts/concept",
+    "concept_2": "/v1/jobs/dce1b04343eb4bb2b3a2804e45f77812/artifacts/concept_2",
+    "concept_3": "/v1/jobs/dce1b04343eb4bb2b3a2804e45f77812/artifacts/concept_3",
+    "model": "/v1/jobs/dce1b04343eb4bb2b3a2804e45f77812/artifacts/model"
+  },
+  "placement": null,
+  "error": null,
+  "warnings": [],
+  "created_at": "2026-09-20T08:16:46.094633+00:00",
+  "updated_at": "2026-09-20T08:25:41.778124+00:00"
+}

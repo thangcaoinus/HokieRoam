@@ -1,4 +1,4 @@
-"""HTTP handlers for the frozen v1 contract (work-split.md P0).
+"""HTTP handlers for the frozen v1 contract (internal/work-split.md P0).
 
 Routes validate, delegate, and project. They never parse vendor JSON — that lives behind the
 GenerationProvider protocol — and they never touch the filesystem by a client-supplied name.

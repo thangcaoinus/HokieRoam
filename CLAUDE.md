@@ -13,25 +13,33 @@ prompt → AI image-to-image redesign → image-to-3D mesh → an automatically 
 that mesh onto the authoritative GIS footprint → inspectable 4×4 matrix, exported GLB + placement manifest
 → third-person walkable scene.
 
-Document authority, in order (re-read all root `.md` files 2026-09-19; design docs added 2026-09-20):
+Document authority, in order (re-read all root `.md` files 2026-09-19; design docs added
+2026-09-20). **The planning and status documents moved to `internal/` on 2026-09-20 and are
+gitignored** — they are the working record of the build, they contradict each other by design,
+and the public front is now the README and the code. They are still on disk; read them there.
 - `DESIGN.md` — **the visual system as built** (survey-sheet world: tokens, type, structure, motion,
   the accessibility rule, and the two compositing traps). Read before touching `web/src/styles.css`
   or any colour in a component.
 - `PRODUCT.md` — durable product truth: audience, the judging scene, and the constraints that bind
   the interface (honesty labels, offline, bad numbers stay visible).
-- `mvp-next-steps.md` — **active scope**: what "done" now means (one real building end to end),
+- `internal/mvp-next-steps.md` — **active scope**: what "done" now means (one real building end to end),
   the four remaining slices and the deferred-work gates. It supersedes the 16-hour countdown.
-- `progress-report.md` — **what is actually built and what was checked**, slice by slice, with the
+- `internal/progress-report.md` — **what is actually built and what was checked**, slice by slice, with the
   limitations spelled out. The most current status document; trust it over older plans.
-- `pitch-plan.md` — product direction and the pitch itself ("Reimagine a place. Walk into your idea.").
+- `internal/pitch-plan.md` — product direction and the pitch itself ("Reimagine a place. Walk into your idea.").
   Creative framing, not an engineering status.
-- `work-split.md` — **who does what**: self-contained lanes P0–P6, file ownership, and the frozen HTTP
+- `internal/work-split.md` — **who does what**: self-contained lanes P0–P6, file ownership, and the frozen HTTP
   contract. Read this before picking up a task; it is the collision guard.
-- `feasibility-plan.md` — coordinate/geometry/export contracts and the service-boundary sketch (§4, §5, §6, §8).
-- `technical-reference.md` — research and deferred scope. Consult for a specific question; not a build order.
-- `implementation-plan.md` — the original 16-hour schedule. **Historical**; its countdown is not evidence
+- `internal/feasibility-plan.md` — coordinate/geometry/export contracts and the service-boundary sketch (§4, §5, §6, §8).
+- `internal/technical-reference.md` — research and deferred scope. Consult for a specific question; not a build order.
+- `internal/implementation-plan.md` — the original 16-hour schedule. **Historical**; its countdown is not evidence
   of remaining time.
-- `spec.md` — the original pitch. What judges were promised, not what is being built.
+- `internal/spec.md` — the original pitch. What judges were promised, not what is being built.
+- `devpost-story.md` — the **Devpost Project Story** (written 2026-09-20): inspiration, build, the
+  measured negative results, what was learned. Written to be pasted into the Devpost story field as
+  Markdown + LaTeX. Every number in it was read off the shipped artifacts or a command run that day —
+  keep it that way if it is edited, and it lists the failing `check-sandbox` walk step rather than
+  hiding it.
 - `README.md` — the public entry point; points at the example flows and the documents above.
 
 ## What the sponsor actually asked for (researched 2026-09-19)
@@ -63,7 +71,7 @@ done for the geometry lane.
 
 **Judging: nobody runs the code.** Science-fair style in NCB (160/260/320/360), **3 minutes to present +
 1 minute of questions**, presented *multiple times* to different panels. Hard gate: the **Devpost entry is
-due 8:00 AM Sunday, September 20** — project description plus demo links judges can open. `spec.md` says
+due 8:00 AM Sunday, September 20** — project description plus demo links judges can open. `internal/spec.md` says
 "3- to 5-minute presentation"; the guide supersedes it, rehearse to three minutes.
 
 Consequences that should drive priorities:
@@ -94,11 +102,11 @@ authoritative path for API assets.
 | Area | State |
 | --- | --- |
 | `web/` | Complete 5-stage UI plus **four** no-backend entry points: **Import your own model** (`.glb`/`.obj`, no address — the derived-site path, see *Free import* below), **Load completed real example** (`/?example=burruss`, static artifacts in `web/public/examples/burruss/`; `/?example=dds` still serves the rejection example), **Open saved ZIP** (re-opens an export into Explore, hash-checked, retained byte-for-byte for re-export), and the labelled local simulation when `VITE_API_BASE` is unset. **Redesigned 2026-09-20 into the survey-sheet world** — light paper ground, ink hairlines, one vermilion, no glass/glow/gradient; see `DESIGN.md`. **Fonts are self-hosted** in `web/public/fonts/` (Archivo + Spline Sans Mono, variable woff2, 212 kB); the Google Fonts CDN link is gone because the demo must render with the network off — verified with every off-origin request aborted. `npm run build` passes — observed 2026-09-20; the >500 kB main-chunk warning is known and accepted. |
-| `server/` | **Working pipeline service.** `app/main.py` (assembly + lifespan), `routes.py` (all 7 `/v1` handlers), `pipeline.py` (orchestration). Drives a fixture job end to end: 1–4 photos → concepts → GLB → fit → export bundle. **`.venv/bin/python -m pytest` → 76 passed** (`test_fit.py`, `test_fit_generality.py`, `test_meshy.py`, `test_job_options.py`), observed 2026-09-19. **`ruff check app` is CLEAN** — the 3 × E501 from the `target_polycount` plumbing were fixed 2026-09-19. (`ruff check tests` still reports 2 × E501 in `test_job_options.py`; `tests/` is outside the documented gate.) |
+| `server/` | **Working pipeline service.** `app/main.py` (assembly + lifespan), `routes.py` (all 7 `/v1` handlers), `pipeline.py` (orchestration). Drives a fixture job end to end: 1–4 photos → concepts → GLB → fit → export bundle. **`.venv/bin/python -m pytest` → 78 passed** (`test_fit.py`, `test_fit_generality.py`, `test_meshy.py`, `test_job_options.py`), observed 2026-09-20 (was 76 on 2026-09-19). **`ruff check app` is CLEAN** — the 3 × E501 from the `target_polycount` plumbing were fixed 2026-09-19. (`ruff check tests` still reports 2 × E501 in `test_job_options.py`; `tests/` is outside the documented gate.) |
 | Integration | **Wired, including the fit.** With `VITE_API_BASE` set, Redesign starts one `pipeline` job via `lib/pipelineJob.ts`, Reconstruct follows the same job and loads its GLB, and a reload re-attaches from localStorage. `FitStage.tsx` is now a dispatcher — `serverMesh ? <ServerFitStage/> : <PreviewFitStage/>` (`FitStage.tsx:68`) — so a server mesh goes through `requestFit` and the server's `PlacementManifest`, and the browser `solveFit` only runs for simulation and manual imports. The same matrix drives Fit, Explore, export and refresh; changing mesh or footprint invalidates a stale placement. **The P3 gap recorded in older notes is closed.** |
 | NPC avatar | **HokieBird, real Meshy generation, 2026-09-20.** `samples/hokiebird-npc/` — one `multi-image-to-3d` call (task `01a0bdb4…`, meshy-6, target 15k) from four cropped mascot photos kept in `views/`; the fourth needed its infographic overlay masked and inpainted first, because Meshy bakes on-image text into the texture. Raw output is 15,676 triangles and 13.58 MB. `web/scripts/prepare-npc.mjs` writes the browser copy `web/public/npc/hokiebird.glb` at **1.19 MB (9%)** by dropping the normal, emissive and metallic-roughness maps and resizing base colour to 1k — geometry untouched, and the two were compared on screen before the drop was accepted. It replaces the capsule avatar in Explore (`ExploreStage.useAvatar`); the capsule survives as the load-failure fallback. |
-| Assets | `samples/` (P4): DDS building photo, OSM way 1174211880 footprint, and a **fixture-generated** concept/model/manifest — labelled synthetic. **Real paid Meshy generations have now run** (2026-09-19): `samples/burruss-medieval-4view/` is the best asset — 4 photos → 4 `image-to-image` calls → **one** `multi-image-to-3d` call, 59k faces with a real footprint and depth (job `41db2b5c…`); `samples/burruss-medieval/` is the same prompt from 1 view (job `97b27cfe…`), kept as the single-view-is-a-flat-facade comparison; `samples/burruss-green-scape/` is a 4-view run that **stalled at `redesign_3`** — resumable by request key, never resubmit. **Corrected 2026-09-20 by reading the ledger:** `server/.data/jobs.sqlite3` holds **2** submissions, not twelve, and `PIPELINE_MAX_SUBMISSIONS` in `server/.env` reads **12**, not 100 — the `.data` directory was evidently reset at some point and the raise this file described was never written. The HokieBird NPC run made it **3 of 12**. Trust the ledger over this paragraph; re-read it before any paid work (`sqlite3 server/.data/jobs.sqlite3 'select * from submissions'`). Note a 4-view job costs **5** slots: one `image-to-image` per view plus one `multi-image-to-3d`. |
-| Demo assets | **The demo example is now Burruss, not DDS** (2026-09-19). `web/public/examples/burruss/` is built from `samples/burruss-medieval-4view/` — 59,246 triangles, **no decimation** (Meshy already met the 60k target, so `prepare-example.mjs` computes `ratio = 1.013` and skips `simplify`), footprint OSM **way/32963472** (`relation/1074686`'s largest outer part, 4,381 m² via pyproj), height **20.7 m from the OSM `height` tag**. Placement is **rejected at 73.13 % IoU** (spill 17.1 % > the 15 % limit) and the UI says so. `web/public/examples/dds/` is retained as the honest **rejection** example — 59,962 triangles decimated from 1,746,050, **rejected at 52.62 % IoU**. `samples/live/` still holds the untouched 62,465,636-byte DDS generation. Neither number is a bug to paper over. |
+| Assets | **Re-read from the ledger 2026-09-20 05:00; the paragraph that previously stood here was wrong in both directions.** `server/.data/jobs.sqlite3` holds **5 jobs / 16 submissions** and `PIPELINE_MAX_SUBMISSIONS` in `server/.env` reads **100**. Trust the ledger over this table and re-read it before any paid work (`sqlite3 server/.data/jobs.sqlite3 'select count(*) from submissions'`). A 4-view job costs **5** slots (one `image-to-image` per view plus one `multi-image-to-3d`); a 3-view job costs 4. **Meshy balance was 854 credits before tonight's slate and 716 after five jobs** — check it with `curl -H "Authorization: Bearer $MESHY_API_KEY" https://api.meshy.ai/openapi/v1/balance`, which is the only honest read of what is left. `samples/` now carries, per building: the four-view Burruss set (`burruss-medieval-4view`, `burruss-scorched`, `burruss-noir`, `burruss-fantasy`, `burruss-solarpunk`), `burruss-medieval` (1-view comparison), `gilbert-scorched`, `live` (DDS), `old-trafford` (reconstruct-only, no concept, no footprint) and the failed `burruss-green-scape`. `samples/README.md` indexes all of them with prompts and job ids. |
+| Demo assets | **Seven cached examples ship as of 2026-09-20**, all verified by `CHECK_EXAMPLE=<id> node scripts/check-example.mjs`. Five are Burruss Hall from the *same four photographs and the same footprint* (OSM **way/32963472**, height 20.7 m from the OSM tag), differing only by prompt — medieval **73.13 %**, solarpunk **70.56 %**, noir **70.41 %**, fantasy **69.90 %**, scorched **59.60 %**, every one `rejected`. **That spread is a measurement, not noise:** the destructive prompt costs 13.5 IoU points because it asks for collapse and rubble, the additive ones cost about three. This is the strongest single claim in the pitch and it only exists because the set shares a footprint. `gilbert-scorched` (Gilbert Place, 220 Gilbert Street, OSM **way/43972334**, height 30 m) is `review` at **33.67 %** with ~zero spill — it under-fills instead of spilling, the opposite failure mode, and is the only asset whose height is `source-record`. `dds` stays as the rejection example at **52.62 %** (and is rotationally indeterminate — all four candidates within 0.005). Read verdicts from each shipped `example.json`: `placement.plan_fit`, with metrics under `placement.selected.metrics`. **Never lower a threshold to turn one of these green.** |
 
 ## Commands
 
@@ -216,6 +224,26 @@ queued → running → progress → succeeded transitions instead of completing 
 is encoded in the task id, so simulated progress survives a restart the way a real provider's does —
 which is what makes the resume path testable without spending credits.
 
+Two paid-generation harnesses live in `samples/` and are run from the repo root with the env exported
+(`set -a; . server/.env; set +a`):
+
+```bash
+server/.venv/bin/python samples/run_style_generation.py <name>   # one authorized job, own .data dir
+server/.venv/bin/python samples/finish_reconstruct.py <name>     # after a submission-unknown freeze
+```
+
+`run_style_generation.py` holds the slate in a `RUNS` table and gives **each job its own data
+directory** (`samples/<name>/.data`), because `storage.py` assumes one worker and SQLite WAL admits one
+writer — three concurrent runs sharing `server/.data` would contend mid-generation. Five ran in parallel
+this way without incident. It also raises `max_submissions`, which the older
+`burruss-medieval-4view/run_generation.py` hardcodes at 12 (already spent).
+
+`finish_reconstruct.py` is the **documented human step after a `submission-unknown` freeze, not an
+auto-retry**: reconcile against the provider's task list first
+(`GET /openapi/v1/multi-image-to-3d?page_num=1&page_size=10`), and only submit by hand if no task was
+created. That is what happened to `burruss-noir` — Meshy showed two in-progress tasks, both accounted
+for, so nothing had been billed. The recovered `generation.json` records this under `recovery`.
+
 Env: copy `server/.env.example` → `server/.env`. `PIPELINE_PROVIDER=fixture` for offline work;
 `meshy` + `MESHY_API_KEY` spends real credits.
 
@@ -240,7 +268,7 @@ false in that state. If `live` is false, nothing you see generated is real.
 
 Scene frame is **X = East, Y = Up, Z = South**, meters, right-handed. Plan coordinates are
 **(East, North) = (scene.x, −scene.z)**. Both fit engines perform that flip (`* [1, -1]` in Python,
-`-z` in TS); if you touch either, preserve it. Derivation and the ECEF/ENU math: `feasibility-plan.md` §4.
+`-z` in TS); if you touch either, preserve it. Derivation and the ECEF/ENU math: `internal/feasibility-plan.md` §4.
 
 - `server/app/geometry/frames.py` is the contract-correct path: pyproj WGS84 → ECEF → local ENU basis.
 - `web/src/lib/geo.ts` uses a flat equirectangular approximation (`110_540` m/deg lat,
@@ -269,7 +297,7 @@ Now:
   requiring 0.85 IoU. **Revisit it if the proxy stops being convex. Never raise it to manufacture
   an `accepted`.**
 - **Measured height, and why it is BOUNDED**: `measured_height_m` sets vertical scale to `Ht/Hm`
-  independently of the plan scale (`feasibility-plan.md` §5.4) and moves `PlacementManifest.height`
+  independently of the plan scale (`internal/feasibility-plan.md` §5.4) and moves `PlacementManifest.height`
   to `source-record`. It never touches the plan fit — a test pins that. **But applying it
   unconditionally squashed Burruss by 2.34×** (94.4 × 20.7 × 63.7 m, L:H 4.56, against a mesh whose
   own L:H is 1.95). OSM's `height=20.7` is the main eaves; the mesh includes the tower — they
@@ -284,7 +312,7 @@ Now:
   a wall band (10–75 % of height) drops Burruss from **73.13 % → 58.72 %** and DDS from 64.32 % →
   30.02 %. The apron was *masking* a shape mismatch, not causing one: the generated walls cover
   less plan area than the real footprint. Both buildings' footprints have wings the mesh never
-  reproduces. This is `technical-reference.md` §5.6's topology mismatch.
+  reproduces. This is `internal/technical-reference.md` §5.6's topology mismatch.
 - **DDS can never be accepted.** Its footprint is 70.3 % of its own convex hull, so a convex proxy
   caps IoU at 0.703 < `min_iou` 0.85. Rejecting it is correct behaviour.
 - Deferred and *not* implemented, because each is worth little and none is visible on screen: FFT
@@ -302,7 +330,7 @@ Now:
 | Output | `FitResult` with factored matrices | `PlacementManifest` — asset sha256, provenance, all four candidates, warnings |
 | Composition | `M = T_target · R_y(θ) · S · T_ground · R_align · N` | `T(c) · yaw(β) · diag(s) · K`, where `K = yaw(−θ_src) · T(−c_src.x, −base, +c_src.y) · N` |
 
-`feasibility-plan.md` §8 requires that **all authoritative fit results come from one implementation**.
+`internal/feasibility-plan.md` §8 requires that **all authoritative fit results come from one implementation**.
 `server/app/geometry/fit.py` is authoritative, and as of the first MVP slice the code enforces it:
 `FitStage.tsx` dispatches a server mesh to `ServerFitStage.tsx` → `requestFit`, and `PlacedScene.tsx`
 applies the manifest's column-major matrix **once** to the raw asset (no second normalization).
@@ -372,7 +400,7 @@ the computed verdict, the metrics panel and the export keep describing the serve
 it was expressed against is replaced or invalidated, since a delta against a different transform is
 meaningless.
 
-**Free import — complete 2026-09-20 (all four slices of `plan.md`).** A fourth no-backend entry
+**Free import — complete 2026-09-20 (all four slices of `internal/plan.md`).** A fourth no-backend entry
 on Ingest, **Import your own model** (`.glb`/`.obj`), skips the address entirely:
 `loadMeshFile` → `deriveSite` → `SandboxFitStage` → Explore → export. `FitStage` tests
 `geo.source === 'derived'` **before** the server-mesh test, so a derived site can never reach
@@ -575,7 +603,7 @@ id, not because someone polled them.
 
 ## Modular work split
 
-`work-split.md` is the authority — lanes P0–P6, each with its owned files, the contract it codes against,
+`internal/work-split.md` is the authority — lanes P0–P6, each with its owned files, the contract it codes against,
 what it develops against while other lanes are unfinished, and the check that proves it is done. Do not
 re-derive a split here; edit that file.
 
@@ -584,7 +612,7 @@ Three rules from it that apply to every task in this repo:
 - **P0–P3 are done** (2026-09-19). The contract is frozen in `server/app/schemas.py` ↔
   `web/src/lib/api.ts`, the backend works end to end on the fixture provider, the frontend drives real
   jobs through it, and the server fit is now the authoritative one for API assets. The lane text in
-  `work-split.md` still lists the `requestFit` wiring as open — that is stale; the code is in
+  `internal/work-split.md` still lists the `requestFit` wiring as open — that is stale; the code is in
   `ServerFitStage.tsx`.
 - **One owner per file.** If you need a file your lane does not own, ask its owner rather than editing it.
   `schemas.py` and `web/src/lib/api.ts` are shared — they change in pairs, and only with an announcement.
@@ -593,7 +621,7 @@ Three rules from it that apply to every task in this repo:
 Human-only lanes: P4 (confirm the building and footprint, spend credits, judge whether the generated model
 resembles it) and P6 (obtain the sponsor contract). These are the real critical path, not code volume.
 
-## What is actually left (from `mvp-next-steps.md` + `progress-report.md`)
+## What is actually left (from `internal/mvp-next-steps.md` + `internal/progress-report.md`)
 
 Ordered. The plumbing is ahead of the demo; do not add more plumbing to avoid the top two items.
 
@@ -616,12 +644,12 @@ Ordered. The plumbing is ahead of the demo; do not add more plumbing to avoid th
 5. **Sponsor import only against a concrete contract.** The ZIP is a handoff artifact; there is still no
    verified Procedura/Scorched Nebraska import endpoint. Do not invent one.
 
-`pitch-plan.md` holds the minute-by-minute three-minute narrative (open on the finished explorable
+`internal/pitch-plan.md` holds the minute-by-minute three-minute narrative (open on the finished explorable
 result, then reveal photo → prompt → concept → mesh from **labelled cached** output, then orbit/walk,
 then placement + measured fit, then export/restore). Its **first feature to cut** is the two-style
 comparison; the completion gate is one whole real-building workflow, not breadth.
 
-Explicitly deferred, with gates in `mvp-next-steps.md`: COLMAP/OpenMVS/VGGT photogrammetry, Google map
+Explicitly deferred, with gates in `internal/mvp-next-steps.md`: COLMAP/OpenMVS/VGGT photogrammetry, Google map
 rendering, broad address coverage, concave/courtyard fit optimization, architecture rewrites.
 
 Also open in the tree: `ruff check app` is clean, but `ruff check tests` still reports 2 × E501 in
@@ -680,8 +708,39 @@ the real collision bug you need a browser that grants pointer lock.
   on 2026-09-19 once merged — it had gone stale by 1290 lines and its only unmerged commit was an
   accidental `tsconfig.tsbuildinfo` artifact. **Branch from `main`, merge often, keep `main` green**;
   a branch left behind a merge is worse than no branch.
-- There is no root `.gitignore` — `web/.gitignore` and `server/.gitignore` cover `node_modules`, `dist`,
-  `.env.local`, `.venv`, `.data`, `tsconfig.tsbuildinfo` and caches.
+- **Repo cleanup, 2026-09-20.** A root `.gitignore` now exists. Planning and status documents moved
+  to **`internal/`** and are untracked (`mvp-next-steps`, `progress-report`, `pitch-plan`, `work-split`,
+  `feasibility-plan`, `technical-reference`, `implementation-plan`, `spec`, `plan`, and the sponsor PDF).
+  They are still on disk; references in this file and in source comments were repointed at `internal/`.
+  Also untracked, as harness mirrors rather than project code: `.agents/`, `.codex/`, `.impeccable/`,
+  `AGENTS.md`, `.claude/skills/`, `.claude/agents/`. Tracked at root now: `README.md`, `CLAUDE.md`,
+  `DESIGN.md`, `PRODUCT.md`, `dev.sh`, `devpost-story.md`, `.gitignore`. `README.md` and
+  `samples/README.md` were rewritten for the seven-example set; `web/README.md`'s example section too.
+  **The product is named HokieRoam**, not Groundtruth — the topbar, the page title and the export
+  filenames all say so, and older documents that say Groundtruth are stale.
+
+## Fixed on 2026-09-20 while staging the seven examples
+
+Three real defects, all found by wiring the new examples up and looking rather than by a test:
+
+- **The export shipped the wrong building.** `ServerFitStage.tsx` used the constant `EXAMPLE_PATH`
+  (which is `burruss`) for a cached example's ZIP, so exporting Gilbert downloaded *Burruss Hall's*
+  model and placement under a Gilbert filename. It now resolves `examplePath(id)` from
+  `mesh.meta.exampleId`, narrowed through `EXAMPLE_IDS`. Latent until a second non-default example
+  existed whose verdict differed.
+- **`?example=` failed silently.** `resumeSession` only wrote a warning to the event log when
+  `loadCompletedExample` threw, so a corrupted or mismatched example showed a judge nothing at all —
+  on the exact path a judge uses. It now sets `jobError`, which renders as `role="alert"` on Ingest.
+- **`check-example.mjs` never opened the example it was checking.** It read `CHECK_EXAMPLE`'s
+  `example.json` but always clicked **Load completed real example**, which opens `DEFAULT_EXAMPLE`.
+  Every non-default id was being compared against Burruss's screen; `dds` passed only because its
+  verdict string happened to match. Non-default ids now navigate by `?example=<id>`, and so does the
+  corrupt-hash half of the check.
+
+Also: `web/vite.config.ts` gained `base: process.env.PUBLIC_BASE ?? '/'` so a GitHub Pages build
+(`PUBLIC_BASE=/VTHax14/ npm run build`) resolves assets under a project subpath while dev, preview and
+every script in `scripts/` keep `/`. `web/dist` is committed on a local `gh-pages` branch but **has not
+been pushed** — the push needs a human.
 
 ## Final step of every task
 

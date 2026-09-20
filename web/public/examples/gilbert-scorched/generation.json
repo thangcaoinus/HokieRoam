@@ -1,0 +1,39 @@
+{
+  "job_id": "dce1b04343eb4bb2b3a2804e45f77812",
+  "kind": "pipeline",
+  "provider": "meshy",
+  "provider_tasks": {
+    "redesign": "01a0bde3-a01e-7280-8603-3c9888db0f90",
+    "redesign_2": "01a0bde3-ddfc-717b-9750-258b5c06cc8a",
+    "redesign_3": "01a0bde4-2253-77fc-a7c7-e70072286fd4",
+    "reconstruct": "01a0bde4-6bd0-7784-9408-a06f6e11016e"
+  },
+  "settings": {
+    "prompt": "This modern university research building - terracotta rain-screen panels, ribbon glazing, metal cladding and a large cantilevered upper volume carried on round columns - as a post-apocalyptic ruin: scorched panels, soot-stained cladding, shattered curtain-wall glazing, exposed rusted steel, blowing dust, harsh amber sunlight. Keep the cantilever, the massing, the floor lines and the original architectural geometry so the building stays recognizable.",
+    "strength": 0.8,
+    "views": 3,
+    "target_polycount": 60000,
+    "provider": "meshy",
+    "image_model": "nano-banana",
+    "mesh_model": "meshy-6"
+  },
+  "warnings": [],
+  "sha256": {
+    "source": "ef3fe4b9119260ddb092cc169ca971762e5f164352dff430bc12884aa2c7b441",
+    "source_2": "dea34928e9097e89545c81822af676cd882496a2daa2511331b2b56b20059a24",
+    "source_3": "590b20dfe054a840e6af917e9b366d732362f691861aa6517cad71569ebcfc37",
+    "concept": "da4fb16633653718fe257732d5b0007fc3351bece4da1cb81580859df619dba0",
+    "model": "465f3923284602a9b175cca7e389f9e6ca0ce39345d3c642bd43a6535951c0c9"
+  },
+  "derived_asset": {
+    "method": "none \u2014 source already within the triangle budget",
+    "ratio": 1,
+    "error": 0,
+    "source_triangles": 56426,
+    "triangles": 56426,
+    "source_bytes": 17297036,
+    "bytes": 17297012,
+    "source_sha256": "81401405a8c11f2ece9dc554192f8c03e69c5dffa99d256bad251389835fb4db",
+    "asset_sha256": "465f3923284602a9b175cca7e389f9e6ca0ce39345d3c642bd43a6535951c0c9"
+  }
+}

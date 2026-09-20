@@ -1,0 +1,23 @@
+{
+  "job_id": "017e2d59762d489db0c06401271bdc9b",
+  "kind": "pipeline",
+  "provider": "meshy",
+  "provider_tasks": {
+    "redesign": "01a0bde3-9fc7-7565-9230-832727c9c40f",
+    "redesign_2": "01a0bde4-440e-71da-91cd-880aba5284bb",
+    "redesign_3": "01a0bde4-c28a-733d-9485-79c9e35c458b",
+    "redesign_4": "01a0bde4-f97d-7419-9cd0-aa148f917b7e",
+    "reconstruct": "01a0bde9-fa27-77b1-8199-6817349f53ad"
+  },
+  "settings": {
+    "prompt": "Burruss Hall at cyberpunk night: rain-soaked facade, neon signage, magenta and cyan rim light, wet reflections on the plaza, holographic glow in the windows. Still unmistakably Burruss Hall - keep the central tower, the symmetric wings and the original architectural geometry.",
+    "strength": 0.8,
+    "views": 4,
+    "target_polycount": 60000,
+    "provider": "meshy",
+    "image_model": "nano-banana",
+    "mesh_model": "meshy-6"
+  },
+  "warnings": [],
+  "recovery": "3D submission recovered by hand after a submission-unknown freeze; the provider task list was reconciled first and showed no task, so nothing had been billed and this was a first submission, not a retry."
+}

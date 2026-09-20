@@ -1,0 +1,11 @@
+{
+  "method": "gltf-transform simplify / meshoptimizer",
+  "ratio": 0.9829136837966679,
+  "error": 0.005,
+  "source_triangles": 61043,
+  "triangles": 60000,
+  "source_bytes": 21103488,
+  "bytes": 21068836,
+  "source_sha256": "6ad4e574ebebb908f9188b6f7d4e986d4543cfb429927f0f4577e73162bd1efa",
+  "asset_sha256": "d38121451aca93cc2dcb616d0dcdf8a20befe7be7c1ff292abd07ad805309289"
+}
