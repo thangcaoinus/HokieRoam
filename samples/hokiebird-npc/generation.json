@@ -1,0 +1,20 @@
+{
+  "task_id": "01a0bdb4-8225-7114-b722-b6ac95296525",
+  "glb_bytes": 13576280,
+  "provider": "meshy",
+  "endpoint": "multi-image-to-3d",
+  "model": "meshy-6",
+  "submission_key": "npc-hokiebird:reconstruct",
+  "target_polycount": 15000,
+  "triangles": 15676,
+  "generated": "2026-09-20",
+  "source_photos": [
+    "samples/Hokie Bird.jpg",
+    "samples/Hokiebird.jpeg",
+    "samples/hokiebird2.jpg",
+    "samples/tt-HokieBird-stats.jpg"
+  ],
+  "views_note": "views/ holds the exact four images submitted. Each was cropped to the subject; view4 additionally had the infographic's teal and orange overlay masked and inpainted, because Meshy bakes on-image text straight into the texture.",
+  "asset_note": "Y-up, faces +Z, unit-normalised (1.71 x 1.90 x 1.12) like every image-to-3D output. The app declares its real height rather than trusting the file.",
+  "model_sha256": "de30cd494214c56b8900986ee42bebbd1e59a8cc1b38483a9d2af385949e5e11"
+}

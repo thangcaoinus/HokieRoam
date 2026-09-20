@@ -1,0 +1,15 @@
+{
+  "source": "samples/hokiebird-npc/model.glb",
+  "source_sha256": "de30cd494214c56b8900986ee42bebbd1e59a8cc1b38483a9d2af385949e5e11",
+  "source_bytes": 13576280,
+  "asset_sha256": "1286ccd9180529e066f08527fe970cd7e8014d48a9c9c9f5f6c63343831af444",
+  "bytes": 1189232,
+  "triangles": 15676,
+  "textures_dropped": [
+    "normal",
+    "emissive",
+    "metallicRoughness"
+  ],
+  "basecolor_resized_to_px": 1024,
+  "note": "Avatar-scale copy. Geometry is unmodified; only textures were reduced."
+}

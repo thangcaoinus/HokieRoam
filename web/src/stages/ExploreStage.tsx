@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Line, Sky, Sparkles } from '@react-three/drei'
 import * as THREE from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { ArrowLeft, MousePointer2, ShieldAlert } from 'lucide-react'
 import { useStore } from '../store'
 import { pointInPolygon, unproject, type V2 } from '../lib/geo'
@@ -12,6 +13,54 @@ import PlacedScene from '../components/PlacedScene'
 import type { MeshAsset } from '../lib/reconstruct'
 
 const RADIUS = 0.45
+
+/**
+ * The walkable avatar: a real Meshy `multi-image-to-3d` generation from four HokieBird photos
+ * (`samples/hokiebird-npc/`, reduced for the browser by `scripts/prepare-npc.mjs`).
+ *
+ * Two facts about the asset that this code depends on, both measured rather than assumed:
+ *  - it is **Y-up and faces +Z**, which is exactly the convention `st.heading` drives
+ *    (`body.rotation.y = atan2(dx, dz)`), so no yaw correction is applied here. Verified from the
+ *    mesh: the head and beak lean +0.49 toward +Z against the torso, and the beak is the mesh's
+ *    maximum z.
+ *  - like every image-to-3D output it is **unit-normalised**, not metric (raw 1.71 x 1.90 x 1.12),
+ *    so its height is declared here rather than trusted from the file.
+ */
+const AVATAR_URL = `${import.meta.env.BASE_URL}npc/hokiebird.glb`
+const AVATAR_HEIGHT_M = 1.9
+
+/**
+ * Loads and normalises the avatar: centred in plan, base on y = 0, scaled to AVATAR_HEIGHT_M.
+ * Returns null until it is ready, and stays null if it fails — the caller keeps drawing the
+ * capsule in that case, so a missing or corrupt asset costs the demo its mascot, never its
+ * ability to walk around the building.
+ */
+function useAvatar() {
+  const [model, setModel] = useState<THREE.Group | null>(null)
+  useEffect(() => {
+    let alive = true
+    new GLTFLoader().load(AVATAR_URL, (gltf) => {
+      if (!alive) return
+      const object = gltf.scene
+      object.traverse((c) => {
+        const m = c as THREE.Mesh
+        if (m.isMesh) { m.castShadow = true; m.receiveShadow = false }
+      })
+      const box = new THREE.Box3().setFromObject(object)
+      const size = box.getSize(new THREE.Vector3())
+      const centre = box.getCenter(new THREE.Vector3())
+      // Translate in model units first, then scale the wrapper: scaling about the origin after
+      // grounding keeps the base on y = 0 (0 * s = 0) and the plan centre on the origin.
+      object.position.set(-centre.x, -box.min.y, -centre.z)
+      const group = new THREE.Group()
+      group.add(object)
+      group.scale.setScalar(AVATAR_HEIGHT_M / (size.y || 1))
+      setModel(group)
+    }, undefined, () => { /* keep the capsule fallback */ })
+    return () => { alive = false }
+  }, [])
+  return model
+}
 const WALK = 5.5
 const SPRINT = 11
 
@@ -76,6 +125,7 @@ function Player({ state, keys, colliders }: { state: React.MutableRefObject<Play
   const { camera, scene } = useThree()
   const look = useRef(new THREE.Vector3())
   const bob = useRef(0)
+  const avatar = useAvatar()
 
   useEffect(() => { if (sun.current) scene.add(sun.current.target) }, [scene])
 
@@ -148,17 +198,25 @@ function Player({ state, keys, colliders }: { state: React.MutableRefObject<Play
     <>
       <directionalLight ref={sun} intensity={2.4} color="#ffd6a8" castShadow shadow-mapSize={[2048, 2048]} shadow-camera-left={-60} shadow-camera-right={60} shadow-camera-top={60} shadow-camera-bottom={-60} shadow-bias={-0.0004} />
       <group ref={body}>
-        <mesh position-y={0.95} castShadow>
-          <capsuleGeometry args={[RADIUS, 1.0, 8, 16]} />
-          <meshStandardMaterial color="#e8e2d8" roughness={0.4} metalness={0.1} />
-        </mesh>
-        <mesh position={[0, 1.45, RADIUS - 0.04]}>
-          <boxGeometry args={[0.52, 0.14, 0.12]} />
-          <meshStandardMaterial color="#c2341d" emissive="#c2341d" emissiveIntensity={2.2} />
-        </mesh>
+        {avatar
+          ? <primitive object={avatar} />
+          // Fallback only. The facing marker exists because a bare capsule has no front; the
+          // mascot does, so it is not drawn over the model.
+          : <>
+              <mesh position-y={0.95} castShadow>
+                <capsuleGeometry args={[RADIUS, 1.0, 8, 16]} />
+                <meshStandardMaterial color="#e8e2d8" roughness={0.4} metalness={0.1} />
+              </mesh>
+              <mesh position={[0, 1.45, RADIUS - 0.04]}>
+                <boxGeometry args={[0.52, 0.14, 0.12]} />
+                <meshStandardMaterial color="#c2341d" emissive="#c2341d" emissiveIntensity={2.2} />
+              </mesh>
+            </>}
+        {/* Ground ring: the avatar's plan position is what the minimap and collider use, and the
+            mascot's spread wings make its silhouette a poor guide to where it actually stands. */}
         <mesh rotation-x={-Math.PI / 2} position-y={0.02}>
-          <ringGeometry args={[0.6, 0.72, 40]} />
-          <meshBasicMaterial color="#c2341d" transparent opacity={0.65} />
+          <ringGeometry args={[0.66, 0.78, 44]} />
+          <meshBasicMaterial color="#c2341d" transparent opacity={0.6} />
         </mesh>
       </group>
     </>
