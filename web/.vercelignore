@@ -1,0 +1,13 @@
+# Vercel builds from source, so only what the build needs is worth uploading.
+node_modules
+dist
+tsconfig.tsbuildinfo
+
+# Never upload a local env file. VITE_API_BASE is set as a Vercel ENVIRONMENT VARIABLE pointing at
+# the Railway service, not shipped in a file -- otherwise a stale localhost:8000 from someone's
+# machine would ride along and the hosted page would probe a server nobody is running.
+.env
+.env.*
+
+# Dev-only tooling: browser checks and the example-preparation script.
+scripts

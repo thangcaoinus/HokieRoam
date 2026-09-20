@@ -738,6 +738,37 @@ Three rules it encodes:
   vocabulary on screen. `check-free-import.mjs` is the standing guard, since the strip prints
   verdicts and IoU and that path may show neither.
 
+## Deployment (added 2026-09-20)
+
+Two services. The front end is static and the cached examples need no backend at all; the backend
+exists only so a **new** generation can be run from the hosted page.
+
+- `web/vercel.json` — framework/build/output pinned so the CLI asks nothing, plus immutable
+  cache headers on `/examples/*` and `/fonts/*` (the GLBs are content-addressed by example id and
+  never change in place). `web/.vercelignore` keeps `node_modules`, `dist`, `scripts` and **every
+  `.env*`** out of the upload.
+- `server/Procfile` and `server/railway.json` — start command, `/v1/health` healthcheck, and
+  **`numReplicas: 1`, which is load-bearing, not a default**: `storage.py` documents that it assumes
+  exactly one application worker, and the submission ledger's atomic reserve is what stops a second
+  charge. Two replicas would break the guarantee that protects real money.
+
+Four things that will bite whoever deploys this:
+
+- **Vite inlines `VITE_API_BASE` at BUILD time.** Adding it to Vercel and restarting does nothing;
+  the project must be **redeployed** for the frontend to know the API exists.
+- **A Railway volume is required**, mounted where `PIPELINE_DATA_DIR` points. Without one the
+  filesystem is ephemeral, so every redeploy wipes `jobs.sqlite3` — and that ledger is the entire
+  cross-restart defence against paying twice for the same submission.
+- **A public URL plus a live key means anyone who opens the link can spend the credits.** There is
+  no auth anywhere in this app and a four-view job costs five submissions. `PIPELINE_MAX_SUBMISSIONS`
+  is the only hard stop, enforced at reserve time before the provider is called — set it to a number
+  you are willing to lose, not to 100. `PIPELINE_CORS_ORIGINS` restricts browsers to the Vercel
+  origin but does nothing about curl.
+- **The repo is ~1.7 GB** because `samples/` and `web/public/examples/` carry every real generation.
+  Prefer CLI uploads (`vercel` from `web/`, `railway up` from `server/`) over GitHub-repo builds,
+  which clone the whole thing. `server/.gitignore` already excludes `.venv` and `.data`, so a
+  `railway up` from that directory sends only the source.
+
 ## Fixed on 2026-09-20 while staging the seven examples
 
 Three real defects, all found by wiring the new examples up and looking rather than by a test:
