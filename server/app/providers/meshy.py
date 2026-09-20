@@ -35,7 +35,8 @@ class MeshyProvider:
         return f"data:{media};base64,{base64.b64encode(image).decode()}"
 
     async def submit(
-        self, stage: Stage, images: list[bytes], prompt: str, strength: float
+        self, stage: Stage, images: list[bytes], prompt: str, strength: float,
+        *, target_polycount: int | None = None
     ) -> str:
         if not self.settings.api_key:
             raise ProviderError("Set MESHY_API_KEY on the backend to enable generation")
@@ -66,7 +67,7 @@ class MeshyProvider:
                 "texture_resolution": "2k", "target_formats": ["glb"],
                 # Without this Meshy returns its raw mesh - our first run was 1.75M triangles and
                 # 62 MB, far too heavy to load in a browser demo.
-                "should_remesh": True, "target_polycount": self.settings.target_polycount,
+                "should_remesh": True, "target_polycount": target_polycount if target_polycount is not None else self.settings.target_polycount,
             }
         try:
             response = await self.client.post(

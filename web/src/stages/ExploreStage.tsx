@@ -5,7 +5,9 @@ import * as THREE from 'three'
 import { ArrowLeft, MousePointer2, ShieldAlert } from 'lucide-react'
 import { useStore } from '../store'
 import { pointInPolygon, unproject, type V2 } from '../lib/geo'
-import type { FitResult } from '../lib/fit'
+import { placementScene, type ScenePlacement } from '../lib/placement'
+import { PlacedAsset } from '../components/PlacedScene'
+import PlacedScene from '../components/PlacedScene'
 import type { MeshAsset } from '../lib/reconstruct'
 
 const RADIUS = 0.45
@@ -52,19 +54,6 @@ function groundTexture(style: string) {
   t.colorSpace = THREE.SRGBColorSpace
   t.anisotropy = 8
   return t
-}
-
-function Building({ asset, M }: { asset: MeshAsset; M: THREE.Matrix4 }) {
-  const obj = useMemo(() => {
-    const o = asset.object.clone(true)
-    o.traverse((c) => { if ((c as THREE.Mesh).isMesh) { c.castShadow = true; c.receiveShadow = true } })
-    return o
-  }, [asset])
-  return (
-    <group matrixAutoUpdate={false} matrix={M}>
-      <primitive object={obj} />
-    </group>
-  )
 }
 
 function Extruded({ poly, h, color }: { poly: V2[]; h: number; color: string }) {
@@ -173,10 +162,9 @@ function Player({ state, keys, colliders }: { state: React.MutableRefObject<Play
 }
 
 function World({ fit, asset, footprint, neighbors, style, state, keys, show }: {
-  fit: FitResult; asset: MeshAsset; footprint: V2[]; neighbors: V2[][]; style: string
+  fit: ScenePlacement; asset: MeshAsset; footprint: V2[]; neighbors: V2[][]; style: string
   state: React.MutableRefObject<PlayerState>; keys: React.MutableRefObject<Keys>; show: { footprint: boolean; bbox: boolean }
 }) {
-  const M = useMemo(() => new THREE.Matrix4().fromArray(fit.matrices.M), [fit])
   const tex = useMemo(() => groundTexture(style), [style])
   const colliders = useMemo(() => [
     { poly: footprint, name: 'footprint boundary' },
@@ -195,7 +183,7 @@ function World({ fit, asset, footprint, neighbors, style, state, keys, show }: {
         <planeGeometry args={[800, 800]} />
         <meshStandardMaterial map={tex} roughness={night ? 0.35 : 1} metalness={night ? 0.3 : 0} />
       </mesh>
-      <Building asset={asset} M={M} />
+      <PlacedAsset asset={asset} matrix={fit.matrices.M} />
       {neighbors.map((n, i) => <Extruded key={i} poly={n} h={6 + ((i * 7) % 9)} color={night ? '#1c1a26' : '#5b5048'} />)}
       {show.footprint && <Line points={loop(footprint, 0.05)} color="#ff6b2c" lineWidth={3} />}
       {show.bbox && <Line points={loop(fit.chosen.poly, 0.07)} color="#5ee1ff" lineWidth={2} dashed dashSize={0.8} gapSize={0.5} />}
@@ -206,7 +194,7 @@ function World({ fit, asset, footprint, neighbors, style, state, keys, show }: {
   )
 }
 
-function spawnPoint(fit: FitResult, colliders: V2[][]): THREE.Vector3 {
+function spawnPoint(fit: ScenePlacement, colliders: V2[][]): THREE.Vector3 {
   const { center, angle, length } = fit.footprintOBB
   for (let r = length / 2 + 16; r < 120; r += 3)
     for (let a = 0; a < 16; a++) {
@@ -217,7 +205,7 @@ function spawnPoint(fit: FitResult, colliders: V2[][]): THREE.Vector3 {
   return new THREE.Vector3(center.x, 0, center.z + 60)
 }
 
-function Minimap({ footprint, neighbors, state, fit }: { footprint: V2[]; neighbors: V2[][]; state: React.MutableRefObject<PlayerState>; fit: FitResult }) {
+function Minimap({ footprint, neighbors, state, fit }: { footprint: V2[]; neighbors: V2[][]; state: React.MutableRefObject<PlayerState>; fit: ScenePlacement }) {
   const dot = useRef<SVGGElement>(null)
   const S = 60 // meters radius shown
   const c = fit.footprintOBB.center
@@ -277,14 +265,15 @@ function Readout({ state }: { state: React.MutableRefObject<PlayerState> }) {
   )
 }
 
-export default function ExploreStage() {
+function WalkStage() {
   const s = useStore()
   const keys = useRef<Keys>({})
   const [pressed, setPressed] = useState<Keys>({})
   const [focused, setFocused] = useState(false)
   const [show, setShow] = useState({ footprint: true, bbox: false })
   const wrap = useRef<HTMLDivElement>(null)
-  const fit = s.fit!, geo = s.geo!, mesh = s.mesh!
+  const fit = useMemo(() => s.placement ? placementScene(s.placement) : s.fit!, [s.placement, s.fit])
+  const geo = s.geo!, mesh = s.mesh!
   const state = useRef<PlayerState>({
     pos: spawnPoint(fit, [geo.footprint, fit.chosen.poly, ...geo.neighbors]),
     heading: 0, camYaw: 0, camPitch: 0.15, vy: 0, speed: 0, blocked: null,
@@ -299,6 +288,7 @@ export default function ExploreStage() {
   useEffect(() => {
     const norm = (e: KeyboardEvent) => (e.key === 'Shift' ? 'shift' : e.key.toLowerCase())
     const down = (e: KeyboardEvent) => {
+      if (document.pointerLockElement !== wrap.current) return
       const k = norm(e)
       if (['w', 'a', 's', 'd', ' ', 'shift', 'q', 'e'].includes(k)) e.preventDefault()
       keys.current[k] = true; setPressed({ ...keys.current })
@@ -310,7 +300,7 @@ export default function ExploreStage() {
       state.current.camYaw -= e.movementX * 0.0035
       state.current.camPitch = Math.max(-0.2, Math.min(0.9, state.current.camPitch + e.movementY * 0.0025))
     }
-    const lock = () => setFocused(document.pointerLockElement === wrap.current)
+    const lock = () => { setFocused(document.pointerLockElement === wrap.current); blur() }
     window.addEventListener('keydown', down)
     window.addEventListener('keyup', up)
     window.addEventListener('blur', blur)
@@ -353,6 +343,12 @@ export default function ExploreStage() {
       <div className="hud br glass" style={{ padding: '10px 14px', display: 'flex', gap: 14, alignItems: 'center' }}>
         <label className="toggle"><input type="checkbox" checked={show.footprint} onChange={(e) => setShow({ ...show, footprint: e.target.checked })} />Footprint</label>
         <label className="toggle"><input type="checkbox" checked={show.bbox} onChange={(e) => setShow({ ...show, bbox: e.target.checked })} />Mesh hull</label>
+        <button className="btn sm" onClick={() => {
+          const st = state.current
+          st.pos.copy(spawnPoint(fit, [geo.footprint, fit.chosen.poly, ...geo.neighbors]))
+          st.camYaw = Math.atan2(st.pos.x - fit.footprintOBB.center.x, st.pos.z - fit.footprintOBB.center.z)
+          st.camPitch = 0.15; st.vy = 0; keys.current = {}; setPressed({})
+        }}>Reset position</button>
         <button className="btn sm" onClick={() => s.go('fit')}><ArrowLeft size={13} /> Transform</button>
       </div>
 
@@ -367,4 +363,28 @@ export default function ExploreStage() {
       )}
     </div>
   )
+}
+
+/** Server designs start in orbit mode; walking uses the identical saved matrix. */
+export default function ExploreStage() {
+  const s = useStore()
+  const [mode, setMode] = useState<'orbit' | 'walk'>('orbit')
+  const [camera, setCamera] = useState(0)
+  if (!s.mesh || !s.geo || !(s.placement || s.fit)) return <div className="stage">Placement is no longer available. Return to Fit to place this design.</div>
+  if (!s.placement) return <WalkStage />
+  return <div className="explore">
+    {mode === 'walk' ? <WalkStage key={camera} /> : <PlacedScene key={camera} asset={s.mesh} placement={s.placement} />}
+    <div className="glass" style={{ position: 'absolute', top: 16, left: 16, right: 240, zIndex: 5, padding: 14 }}>
+      <div className="row wrap">
+        <b>Placement: {s.placement.plan_fit}</b>
+        <button className="btn sm" onClick={() => { document.exitPointerLock(); setMode(mode === 'orbit' ? 'walk' : 'orbit') }}>{mode === 'orbit' ? 'Walk around' : 'Orbit view'}</button>
+        <button className="btn sm" onClick={() => { document.exitPointerLock(); setCamera((n) => n + 1) }}>Reset camera</button>
+        <button className="btn sm" onClick={() => { document.exitPointerLock(); s.go('fit') }}>Inspect / export</button>
+      </div>
+      <div className="dimmer" style={{ marginTop: 6 }}>Heading unverified · height inferred{s.placement.plan_fit === 'rejected' ? ' · Inspection only: this placement fails the fit constraints.' : ''}</div>
+      <details style={{ marginTop: 8 }}><summary>Source photo and prompt</summary>
+        <p>{s.prompt}</p>{s.photos[0] && <img src={s.photos[0]} alt="Original building" style={{ width: 180, borderRadius: 8 }} />}
+      </details>
+    </div>
+  </div>
 }

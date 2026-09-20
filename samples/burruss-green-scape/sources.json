@@ -1,0 +1,43 @@
+{
+  "building": "Burruss Hall, Virginia Tech, Blacksburg, Virginia",
+  "prompt": "make this overflow green scape building",
+  "photos": [
+    {
+      "file": "01-front-wide.jpg",
+      "view": "Wide front elevation from the Drillfield",
+      "page": "https://commons.wikimedia.org/wiki/File:Virginiatech-burrusshall-fromdrillfield.JPG",
+      "author": "Buridan",
+      "license": "Public domain",
+      "image_url": "https://upload.wikimedia.org/wikipedia/commons/a/a4/Virginiatech-burrusshall-fromdrillfield.JPG",
+      "sha256": "09621df9ee8bd8cb86095382fe0b17201ed76fc45f58ee38469de4681412d72d"
+    },
+    {
+      "file": "02-front-oblique.jpg",
+      "view": "Low oblique view of the front tower; wings partially out of frame",
+      "page": "https://commons.wikimedia.org/wiki/File:Burruss_Hall_-01-_(12349518863).jpg",
+      "author": "Ben Schumin",
+      "license": "CC BY-SA 2.0",
+      "license_url": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "image_url": "https://upload.wikimedia.org/wikipedia/commons/e/e5/Burruss_Hall_-01-_%2812349518863%29.jpg",
+      "sha256": "f34cc603d99232eb8af40e65599cab8b004956b70aad64303d5f1872671cf749"
+    },
+    {
+      "file": "03-rear.jpg",
+      "view": "Rear elevation from Cowgill Plaza; trees partially obscure facade",
+      "page": "https://commons.wikimedia.org/wiki/File:Virginiatech-backofburruss.JPG",
+      "author": "Buridan",
+      "license": "Public domain",
+      "image_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/Virginiatech-backofburruss.JPG/1280px-Virginiatech-backofburruss.JPG",
+      "sha256": "fc0c74d657f85fa645509271593f2f517833c6b5074e12f952cd5b3131734d77"
+    },
+    {
+      "file": "04-elevated-front.jpg",
+      "view": "Elevated frontal photograph looking down toward entrance; not a top-down roof survey",
+      "page": "https://staging.campus360.org/Virginia-Tech/virginia-tech-from-above-3",
+      "author": "Campus360 / Virginia Tech campus tour; individual photographer not specified",
+      "license": "No open license identified; source attribution retained",
+      "image_url": "https://cdn.campus360.org/image/eyJidWNrZXQiOiAiY2FtcHVzMzYwLm9yZyIsICJrZXkiOiAicGFub3MvMTAwMDA3MTQ0L21vYmlsZV9mLmpwZyIsICJlZGl0cyI6IHsicmVzaXplIjogeyJ3aWR0aCI6IDE0MDAsICJmaXQiOiAiY292ZXIifX19",
+      "sha256": "4fdcbca02886c022cae22ecf9008bb53f377e8767cbab8b87f03993bb505a6af"
+    }
+  ]
+}

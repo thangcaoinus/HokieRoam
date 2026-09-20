@@ -13,6 +13,7 @@ export interface GeoResult {
   neighbors: V2[][]
   source: 'osm' | 'demo'
   osmId?: string
+  identityConfirmed?: boolean
   bucket: string
   areaM2: number
 }

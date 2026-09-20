@@ -44,7 +44,7 @@ export default function App() {
             </span>
           )}
           {s.geo && <span className="chip mono">bucket · {s.geo.bucket}</span>}
-          <ApiChip api={s.api} />
+          {s.bundle ? <span className="chip">Imported bundle · {s.mesh?.meta.provider}{s.mesh?.meta.provider === 'fixture' ? ' (synthetic)' : ''}</span> : s.example ? <span className="chip">Cached real example · Meshy</span> : <ApiChip api={s.api} />}
           <button className="btn sm ghost" onClick={s.reset} title="Start a new project">
             <RotateCcw size={14} /> New
           </button>
@@ -70,10 +70,12 @@ export default function App() {
               </li>
             ))}
           </ol>
-          {(s.geo || s.mesh || s.fit) && (
+          {(s.geo || s.mesh || s.fit || s.placement) && (
             <div className="rail-summary">
               {s.geo && <div className="kv"><span>Footprint</span><span>{s.geo.areaM2.toFixed(0)} m² · {s.geo.source === 'osm' ? s.geo.osmId : 'demo'}</span></div>}
               {s.mesh && <div className="kv"><span>Mesh</span><span>{(s.mesh.meta.triangles / 1000).toFixed(1)}k tris</span></div>}
+              {s.placement && <div className="kv"><span>Placement</span><span>{s.placement.plan_fit}</span></div>}
+              {s.placement && <div className="kv"><span>IoU</span><span>{(s.placement.selected.metrics.iou * 100).toFixed(1)}%</span></div>}
               {s.fit && <div className="kv"><span>IoU</span><span>{(s.fit.iou * 100).toFixed(1)}%</span></div>}
               {s.fit && <div className="kv"><span>Yaw</span><span>{s.fit.yawDeg.toFixed(2)}°</span></div>}
             </div>

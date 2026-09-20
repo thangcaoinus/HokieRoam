@@ -1,0 +1,33 @@
+{
+  "job_id": "41db2b5c7f3440869efeebf3ed788874",
+  "kind": "pipeline",
+  "provider": "meshy",
+  "provider_tasks": {
+    "redesign": "01a0bc59-efb8-7140-83f3-05d3b8564e8d",
+    "redesign_2": "01a0bc5a-3bed-7560-919f-6698e3befd2e",
+    "redesign_3": "01a0bc5a-a296-7626-a8b5-bcf1d9e3c72c",
+    "redesign_4": "01a0bc5b-1e30-76d5-b230-b3d5c68638cb",
+    "reconstruct": "01a0bc5b-6aaf-73d1-bd07-63630ba9e6c9"
+  },
+  "settings": {
+    "prompt": "Make this looks like an old building medieval fantasy building with greenery, but contained, not like complete overhaul of it, but just some modification to howw the wall, maybe some hole, maybe vine, etc... but still recognizable as burruss hall",
+    "strength": 0.8,
+    "views": 4,
+    "target_polycount": 60000,
+    "provider": "meshy",
+    "image_model": "nano-banana",
+    "mesh_model": "meshy-6"
+  },
+  "warnings": [],
+  "sha256": {
+    "source": "09621df9ee8bd8cb86095382fe0b17201ed76fc45f58ee38469de4681412d72d",
+    "source_2": "f34cc603d99232eb8af40e65599cab8b004956b70aad64303d5f1872671cf749",
+    "source_3": "fc0c74d657f85fa645509271593f2f517833c6b5074e12f952cd5b3131734d77",
+    "source_4": "4fdcbca02886c022cae22ecf9008bb53f377e8767cbab8b87f03993bb505a6af",
+    "concept": "4e842936145a5eea97165a2aaefaa1042c56fda887020f88285d9bce8dd91c1f",
+    "concept_2": "de132b15bdfeb16efd48087e9bc70c0807aa95aced87c880fa3b59ce1705f9f2",
+    "concept_3": "c5f36dd72f435d4108236e775484201981c7484b27b1690cfabd460f7fc190ac",
+    "concept_4": "b5cee7fc6d077af634d5949decd32d03b9157407e2b137bdc987f23322906e34",
+    "model": "cc22c745ee0ac8814644d9b346b84a1ea312d9fe39729c7febbc1e4414aa7a2d"
+  }
+}

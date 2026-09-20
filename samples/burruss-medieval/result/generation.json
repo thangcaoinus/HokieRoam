@@ -1,0 +1,24 @@
+{
+  "job_id": "97b27cfe211a49ff96a59af2fa508361",
+  "kind": "pipeline",
+  "provider": "meshy",
+  "provider_tasks": {
+    "redesign": "01a0bc51-a2d7-7377-85b9-9066a7545251",
+    "reconstruct": "01a0bc52-08a6-7038-9a46-42cb033ee0ce"
+  },
+  "settings": {
+    "prompt": "Make this looks like an old building medieval fantasy building with greenery, but contained, not like complete overhaul of it, but just some modification to howw the wall, maybe some hole, maybe vine, etc... but still recognizable as burruss hall",
+    "strength": 0.8,
+    "views": 1,
+    "target_polycount": 60000,
+    "provider": "meshy",
+    "image_model": "nano-banana",
+    "mesh_model": "meshy-6"
+  },
+  "warnings": [],
+  "sha256": {
+    "source": "09621df9ee8bd8cb86095382fe0b17201ed76fc45f58ee38469de4681412d72d",
+    "concept": "c8fdf6e67479904ff8110c2eedc02d9e92134573c513dc2994a9c1dc955718b5",
+    "model": "d14b7731e2aa472589ed0abad667c2472d366bd8418b23c0b36cd8e9224ef449"
+  }
+}

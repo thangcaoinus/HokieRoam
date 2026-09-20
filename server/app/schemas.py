@@ -114,6 +114,7 @@ class JobView(Contract):
     provider_task_id: str | None
     provider_tasks: dict[str, str]
     progress: int | None
+    target_polycount: int | None = None
     artifacts: dict[str, str]
     placement: PlacementManifest | None
     error: str | None

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AlertTriangle, ArrowRight, Wand2 } from 'lucide-react'
 import { useStore } from '../store'
 import { PRESETS } from '../lib/presets'
+import { CREATIVE_IDEAS, MAX_PROMPT_LENGTH, promptError } from '../lib/creativePrompt'
 import { REDESIGN_STEPS, simulateRedesign } from '../lib/redesign'
 import { apiConfigured, isTerminal } from '../lib/api'
 import { startJob } from '../lib/pipelineJob'
@@ -39,7 +40,7 @@ export default function RedesignStage() {
     setErr('')
     s.log(`redesign › [simulation] "${preset.name}" · strength ${s.strength.toFixed(2)}`)
     try {
-      const out = await simulateRedesign(source, preset, s.strength, setStep)
+      const out = await simulateRedesign(source, preset, s.strength, setStep, s.prompt)
       s.set({ concept: out, mesh: null, fit: null })
       s.log('redesign › [simulation] concept generated', 'ok')
     } catch (e) {
@@ -62,9 +63,21 @@ export default function RedesignStage() {
   }
 
   const busy = api ? posting || jobActive : step >= 0
+  const promptIssue = promptError(s.prompt)
+  const validTarget = Number.isInteger(s.targetPolycount) && s.targetPolycount >= 100 && s.targetPolycount <= 300000
   const label = api
     ? jobActive ? `Job ${statusText(job!)}` : job ? 'Regenerate concept' : 'Generate concept'
     : s.concept ? 'Regenerate concept' : 'Generate concept'
+
+  if (s.example || s.bundle) return <div className="stage">
+    <div className="eyebrow">Saved design · source and concept</div>
+    <h1 className="h1">From place to <em>idea.</em></h1>
+    <p className="lede">{s.bundle ? `Imported result · provider recorded as ${s.mesh?.meta.provider}.` : 'Cached Meshy generation.'} This is the prompt and imagery saved with the model.</p>
+    {s.mesh?.meta.provider === 'fixture' && <OriginBanner kind="fixture" />}
+    <div className="card card-pad"><p>{s.prompt}</p>{source && <Compare before={source} after={s.concept} />}</div>
+    <div className="next-bar"><button className="btn primary" onClick={() => s.go('explore')}>Explore this design <ArrowRight size={17} /></button></div>
+    <p className="dimmer">Use New to start another design.</p>
+  </div>
 
   return (
     <div className="stage">
@@ -90,25 +103,45 @@ export default function RedesignStage() {
 
           <div className="card card-pad stack">
             <div>
-              <div className="label"><span>Prompt</span><span>{s.prompt.length} chars</span></div>
-              <textarea className="textarea" value={s.prompt} disabled={busy} onChange={(e) => s.set({ prompt: e.target.value })} />
+              <div className="label"><label htmlFor="creative-prompt">Creative prompt</label><span>{[...s.prompt].length}/{MAX_PROMPT_LENGTH}</span></div>
+              <textarea id="creative-prompt" className="textarea" value={s.prompt} disabled={busy}
+                aria-describedby="creative-prompt-help" aria-invalid={!!promptIssue}
+                placeholder="Describe materials, colors, greenery and lighting for your building…"
+                onChange={(e) => s.set({ prompt: e.target.value })} />
+              <p id="creative-prompt-help" className="dimmer" style={{ fontSize: 12 }}>
+                Start with a preset, then edit freely or add an idea below. Selecting a preset replaces this text.
+                {api ? ' Your prompt guides the concept image used to build the 3D model.' : ' Local preview uses style and color keywords only (ivy, neon, terracotta, blue). Full creative instructions require the live pipeline.'}
+              </p>
+              <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+                {CREATIVE_IDEAS.map((idea) => <button key={idea.label} className="btn" disabled={busy || [...`${s.prompt} ${idea.prompt}`].length > MAX_PROMPT_LENGTH}
+                  onClick={() => s.set({ prompt: `${s.prompt.trim()} ${idea.prompt}`.trim() })}>+ {idea.label}</button>)}
+              </div>
+              {promptIssue && <div className="err-text" role="alert">{promptIssue}</div>}
             </div>
             <div>
               <div className="label"><span>Restyle strength</span><span className="mono">{s.strength.toFixed(2)}</span></div>
               <input className="slider" type="range" min={0.2} max={1} step={0.01} value={s.strength} disabled={busy} onChange={(e) => s.set({ strength: +e.target.value })} />
               <div className="row dimmer" style={{ justifyContent: 'space-between', fontSize: 11 }}><span>Faithful geometry</span><span>Bold restyle</span></div>
             </div>
+            <div>
+              <label className="label" htmlFor="target-polycount">Target polygons for 3D</label>
+              <input id="target-polycount" className="input" type="number" min={100} max={300000} step={1}
+                value={Number.isNaN(s.targetPolycount) ? '' : s.targetPolycount} disabled={busy}
+                onChange={(e) => s.set({ targetPolycount: e.target.value === '' ? NaN : Number(e.target.value) })} />
+              <div className="dimmer" style={{ fontSize: 12, marginTop: 8 }}>100–300,000 · default 60,000. Lower targets favor lighter models; higher targets retain more detail. Applies to the next API generation; actual output may differ.</div>
+              {!validTarget && <div className="err-text">Enter a whole number from 100 to 300,000.</div>}
+            </div>
             {unknown ? (
               // Deliberately no button: a submission-unknown job may already be billed.
               <div className="dimmer" style={{ fontSize: 12.5 }}>Generation is paused until this job is reconciled — see the job panel. Use <b>New</b> in the header to start a separate project.</div>
             ) : (
-              <button className="btn primary lg block" onClick={api ? runJob : runSimulation} disabled={busy || !source}>
+              <button className="btn primary lg block" onClick={api ? runJob : runSimulation} disabled={busy || !source || !!promptIssue || (api && !validTarget)}>
                 <Wand2 size={17} /> {label}
               </button>
             )}
             {api && !job && (
               <div className="dimmer" style={{ fontSize: 12 }}>
-                Starts one pipeline job on the server: redesign, then image-to-3D from the concept. Same photo, prompt and strength re-attach to the existing job instead of paying twice.
+                Starts one pipeline job on the server: redesign, then image-to-3D from the concept. Same photos, prompt, strength and polygon target re-attach to the existing job instead of paying twice.
               </div>
             )}
             {err && <div className="err-text">{err}</div>}

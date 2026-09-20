@@ -25,6 +25,9 @@ export interface MeshAsset {
     provider?: string
     /** True for the local procedural stand-in — never image-to-3D output. */
     simulated?: boolean
+    sha256?: string
+    exampleId?: string
+    bundle?: boolean
   }
 }
 
@@ -58,15 +61,23 @@ function unitHeuristic(o: THREE.Object3D): { units: 'm' | 'cm' | 'mm'; scale: nu
 
 async function loadMesh(url: string, ext: string, meta: Pick<MeshAsset['meta'], 'source' | 'jobId' | 'provider'>): Promise<MeshAsset> {
   let object: THREE.Object3D
+  let sha256: string | undefined
   if (ext === 'obj') object = await new OBJLoader().loadAsync(url)
-  else object = (await new GLTFLoader().loadAsync(url)).scene
+  else if (ext === 'glb') {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error(`Model download failed (${response.status})`)
+    const bytes = await response.arrayBuffer()
+    const digest = await crypto.subtle.digest('SHA-256', bytes)
+    sha256 = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+    object = (await new GLTFLoader().parseAsync(bytes, '')).scene
+  } else object = (await new GLTFLoader().loadAsync(url)).scene
   object.traverse((c) => { if ((c as THREE.Mesh).isMesh) { c.castShadow = true; c.receiveShadow = true } })
   const { units, scale } = unitHeuristic(object)
   return {
     object,
     // glTF is Y-up by specification, so only the unit scale is inferred.
     normalization: new THREE.Matrix4().makeScale(scale, scale, scale),
-    meta: { ...meta, format: ext.toUpperCase(), upAxis: 'Y', units, ...countStats(object) },
+    meta: { ...meta, sha256, format: ext.toUpperCase(), upAxis: 'Y', units, ...countStats(object) },
   }
 }
 

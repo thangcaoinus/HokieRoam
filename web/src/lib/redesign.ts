@@ -3,6 +3,7 @@
 // module is not called. Without it, a deterministic canvas colour/material restyle stands in so the
 // whole pipeline can be demoed offline. It is labelled as a simulation wherever it reaches a screen.
 import type { StylePreset } from './presets'
+import { previewAppearance, promptError } from './creativePrompt'
 
 /** Timed steps for the simulation's progress walk. Never shown over a real server job. */
 export const REDESIGN_STEPS = [
@@ -12,18 +13,21 @@ export const REDESIGN_STEPS = [
   'Refining detail · upscaling',
 ]
 
-/** The free-text prompt only matters to a real model; the simulation keys off the preset. */
+/** Limited keyword preview; arbitrary creative instructions require the live model. */
 export async function simulateRedesign(
   source: string,
   preset: StylePreset,
   strength: number,
   onStep: (i: number) => void,
+  prompt: string = preset.prompt,
 ): Promise<string> {
+  const error = promptError(prompt)
+  if (error) throw new Error(error)
   for (let i = 0; i < REDESIGN_STEPS.length; i++) {
     onStep(i)
     await new Promise((r) => setTimeout(r, 650 + Math.random() * 450))
   }
-  return localRestyle(source, preset.id, strength)
+  return localRestyle(source, previewAppearance(prompt, preset.id), strength)
 }
 
 function loadImage(src: string) {
@@ -41,7 +45,8 @@ function rng(seed: number) {
   return () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296)
 }
 
-async function localRestyle(src: string, style: string, strength: number): Promise<string> {
+async function localRestyle(src: string, appearance: ReturnType<typeof previewAppearance>, strength: number): Promise<string> {
+  const { style, tint } = appearance
   const img = await loadImage(src)
   const W = Math.min(1280, img.naturalWidth)
   const H = Math.round((W / img.naturalWidth) * img.naturalHeight)
@@ -81,7 +86,11 @@ async function localRestyle(src: string, style: string, strength: number): Promi
   for (let i = 0; i < d.length; i += 4) {
     const p = i / 4
     const x = p % W, y = (p / W) | 0
-    const [r, g, b] = fn(d[i], d[i + 1], d[i + 2], y, x)
+    let [r, g, b] = fn(d[i], d[i + 1], d[i + 2], y, x)
+    if (tint) {
+      const luminance = (0.3 * r + 0.59 * g + 0.11 * b) / 255
+      ;[r, g, b] = [r, g, b].map((v, channel) => v * 0.55 + tint[channel] * luminance * 0.65)
+    }
     const n = (rand() - 0.5) * (style === 'scorched' ? 26 : 10) * k
     d[i] = d[i] * (1 - k) + (r + n) * k
     d[i + 1] = d[i + 1] * (1 - k) + (g + n) * k

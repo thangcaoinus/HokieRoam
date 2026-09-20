@@ -1,0 +1,33 @@
+{
+  "job_id": "77f195b492914dda9a5eb914718f39e9",
+  "kind": "pipeline",
+  "provider": "meshy",
+  "provider_tasks": {
+    "redesign": "01a0bbc5-b6e1-7515-9bbb-3ae92ea3d590",
+    "reconstruct": "01a0bbc7-57b4-7186-a1fa-56cd6e91e4e5"
+  },
+  "settings": {
+    "prompt": "Modern Hokie Stone academic building with large glass curtain walls, preserve roofline and massing.",
+    "strength": 0.8,
+    "provider": "meshy",
+    "image_model": "nano-banana",
+    "mesh_model": "meshy-6"
+  },
+  "warnings": [],
+  "sha256": {
+    "source": "abfc880d9f4410399c9cb07afd261e7bccd75aef8b5e02243a339d6b5a7d4f3d",
+    "concept": "80b309f3f1437e34a7259166204e2dbb5b0ebdd9164db497d82d766fce0e9bc3",
+    "model": "e208fd03ec0d869062e28a644a38aeb4d99e7b69fcb4d6bd973ba9f4d68c21b6"
+  },
+  "derived_asset": {
+    "method": "gltf-transform simplify / meshoptimizer",
+    "ratio": 0.034363277111193836,
+    "error": 0.005,
+    "source_triangles": 1746050,
+    "triangles": 59962,
+    "source_bytes": 62465636,
+    "bytes": 12907244,
+    "source_sha256": "4240a163efe0c1412d92c0fdba676d4b2fd9922015ac38eac56b21ff185e7e48",
+    "asset_sha256": "e208fd03ec0d869062e28a644a38aeb4d99e7b69fcb4d6bd973ba9f4d68c21b6"
+  }
+}

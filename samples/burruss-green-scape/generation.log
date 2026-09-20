@@ -1,0 +1,7 @@
+Job: 5d0102d2a4b541acad6bfb0ab15b184c
+('redesign', 'queued', None, 4)
+('redesign', 'running', 20, 4)
+('redesign', 'running', 30, 4)
+('redesign', 'submitting', 100, 5)
+('redesign', 'running', 30, 5)
+('redesign', 'running', 30, 6)

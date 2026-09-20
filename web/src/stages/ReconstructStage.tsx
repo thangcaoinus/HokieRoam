@@ -11,7 +11,7 @@ import { OriginBanner } from './RedesignStage'
 
 export default function ReconstructStage() {
   const s = useStore()
-  const api = apiConfigured()
+  const api = apiConfigured() && !s.example && !s.bundle
   const [step, setStep] = useState(-1)
   const [mode, setMode] = useState<ShadeMode>('shaded')
   const [err, setErr] = useState('')
@@ -61,6 +61,7 @@ export default function ReconstructStage() {
       <div className="eyebrow">Stage 03 · 3D mesh generation</div>
       <h1 className="h1">From concept to <em>geometry</em>.</h1>
       <p className="lede">The restyled concept is lifted into a textured mesh through automated image-to-3D reconstruction. You can also bring your own <span className="mono">.glb</span> or <span className="mono">.obj</span>.</p>
+      {job?.target_polycount != null && <p className="dimmer">This job requested {job.target_polycount.toLocaleString()} polygons. Change the target in Redesign for your next generation.</p>}
 
       <div className="grid-2">
         <div className="stack">
@@ -72,7 +73,7 @@ export default function ReconstructStage() {
               <div className="dimmer" style={{ fontSize: 13 }}>No concept yet. Generate one in Redesign, or upload a mesh below.</div>
             )}
             <div className="row" style={{ marginTop: 14 }}>
-              {api ? (
+              {s.example || s.bundle ? <div className="dimmer">Saved result. Use Fit to inspect its placement or Explore to walk around it.</div> : api ? (
                 // With the API, the pipeline job builds the mesh from its own concept — there is no
                 // separate "reconstruct" click that could start (and pay for) a second job.
                 <div className="dimmer" style={{ flex: 1, fontSize: 12.5 }}>

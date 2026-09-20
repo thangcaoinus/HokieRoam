@@ -1,3 +1,4 @@
+import { promptError } from './creativePrompt'
 // Drives one Pipeline API job from the UI (work-split.md P2). Only used when VITE_API_BASE is set;
 // with it unset the stages keep their local simulation path.
 //
@@ -6,7 +7,7 @@
 // The Redesign stage starts the job; the Reconstruct stage re-attaches to the same job.
 //
 // Money rules this file exists to keep:
-// - The Idempotency-Key is derived from the inputs (photo bytes + prompt + strength) and persisted
+// - The Idempotency-Key is derived from the inputs (photo bytes + prompt + strength + polygon target) and persisted
 //   BEFORE the POST. A retried click, or a reload that lost the response, re-sends the same key and
 //   the server returns the job it already has instead of paying for a second generation.
 // - Only an explicit "Regenerate" on a finished job with identical inputs bumps the attempt counter
@@ -24,10 +25,13 @@ import {
   pollJob,
   ApiError,
   type JobView,
+  sceneRing,
 } from './api'
-import type { GeoResult } from './geo'
+import { geohash, polygonArea, unproject, type GeoResult } from './geo'
+import { placementMatches } from './placement'
+import { loadCompletedExample } from './cachedExample'
 import { loadMeshUrl } from './reconstruct'
-import { SESSION_KEY, useStore, type StageId } from '../store'
+import { BUNDLE_KEY, EXAMPLE_KEY, SESSION_KEY, useStore, type StageId } from '../store'
 
 // ---------------------------------------------------------------------------
 // Session persistence (localStorage is enough — work-split.md P2)
@@ -44,6 +48,7 @@ interface Session {
   presetId: string
   prompt: string
   strength: number
+  targetPolycount?: number
   stage: StageId
 }
 
@@ -68,6 +73,7 @@ function writeSession(patch: Partial<Session>) {
     presetId: s.presetId,
     prompt: s.prompt,
     strength: s.strength,
+    targetPolycount: s.targetPolycount,
     stage: s.stage,
     ...patch,
   }
@@ -88,9 +94,10 @@ function startPersisting() {
   useStore.subscribe((s, prev) => {
     // "New project" clears the job (store.reset also drops the saved session): stop following it.
     if (prev.job && !s.job) { stopFollowing(); modelLoadedFor = null; return }
+    if (s.bundle || s.example) return
     if (
       s.address !== prev.address || s.geo !== prev.geo || s.presetId !== prev.presetId ||
-      s.prompt !== prev.prompt || s.strength !== prev.strength || s.stage !== prev.stage
+      s.prompt !== prev.prompt || s.strength !== prev.strength || s.targetPolycount !== prev.targetPolycount || s.stage !== prev.stage
     ) writeSession({})
   })
 }
@@ -125,7 +132,7 @@ function stopFollowing() {
 }
 
 /** Mirror one server snapshot into the store. Only reports what the server says. */
-function applyJob(job: JobView) {
+async function applyJob(job: JobView) {
   const s = useStore.getState()
   const prev = s.job?.job_id === job.job_id ? s.job : null
   // A fresh snapshot proves contact, so any earlier "lost contact" message is stale.
@@ -148,7 +155,7 @@ function applyJob(job: JobView) {
   }
   useStore.setState(patch)
 
-  if (artifactUrl(job, 'model') && modelLoadedFor !== job.job_id) void loadModel(job)
+  if (artifactUrl(job, 'model') && modelLoadedFor !== job.job_id) await loadModel(job)
 }
 
 async function loadModel(job: JobView) {
@@ -163,7 +170,10 @@ async function loadModel(job: JobView) {
     })
     // A newer job may have started while the GLB was downloading.
     if (useStore.getState().job?.job_id !== job.job_id) return
-    useStore.setState({ mesh, fit: null })
+    const current = useStore.getState()
+    const saved = current.job?.placement
+    const placement = saved && current.geo && placementMatches(saved, current.geo, mesh) ? saved : null
+    useStore.setState({ mesh, fit: null, placement })
     useStore.getState().log(`job › model loaded from server (${mesh.meta.triangles.toLocaleString()} tris)`, 'ok')
   } catch (e) {
     modelLoadedFor = null
@@ -201,20 +211,24 @@ function follow(jobId: string) {
  * current job has finished, because a running job must not be abandoned and paid for twice.
  */
 export async function startJob({ regenerate = false } = {}) {
+  startPersisting()
   const s = useStore.getState()
   if (!s.photos.length) throw new Error('No source photo')
+  const issue = promptError(s.prompt)
+  if (issue) throw new Error(issue)
+  if (!Number.isInteger(s.targetPolycount) || s.targetPolycount < 100 || s.targetPolycount > 300000) throw new Error('Target polygons must be a whole number from 100 to 300,000.')
   useStore.setState({ jobError: null })
 
   // Primary view first, then the other angles. Reconstruction is a sparse-view model: one photo
   // yields a flat facade, several give the mesh an actual back and sides. Meshy caps this at 4.
   const ordered = [s.photos[s.primaryPhoto], ...s.photos.filter((_, i) => i !== s.primaryPhoto)]
     .filter(Boolean)
-    .slice(0, MAX_VIEWS)
+  if (ordered.length > MAX_VIEWS) throw new Error(`Use at most ${MAX_VIEWS} photos; remove extra views before generating.`)
   const images = await Promise.all(ordered.map(async (u) => (await fetch(u)).blob()))
   const buffers = await Promise.all(images.map((b) => b.arrayBuffer()))
   // Every view feeds the fingerprint: adding or swapping an angle is a different generation and
   // must produce a different Idempotency-Key, not silently re-attach to the old job.
-  const fingerprint = await sha256Hex([...buffers, s.prompt, s.strength.toFixed(3)])
+  const fingerprint = await sha256Hex([...buffers, s.prompt, s.strength.toFixed(3), String(s.targetPolycount)])
 
   const session = readSession()
   let attempt = session?.fingerprint === fingerprint ? session.attempt : 0
@@ -233,6 +247,7 @@ export async function startJob({ regenerate = false } = {}) {
       images,
       prompt: s.prompt,
       strength: s.strength,
+      targetPolycount: s.targetPolycount,
       idempotencyKey: key,
       kind: 'pipeline',
       filenames: images.map((b, i) =>
@@ -254,7 +269,7 @@ export async function startJob({ regenerate = false } = {}) {
     useStore.setState({ concept: null, mesh: null, fit: null })
   }
   writeSession({ jobId: job.job_id })
-  applyJob(job)
+  await applyJob(job)
   if (!isTerminal(job.status)) follow(job.job_id)
 }
 
@@ -274,9 +289,62 @@ export async function probeHealth() {
 let resumed = false
 export async function resumeSession() {
   // Once per page load (React StrictMode runs mount effects twice in development).
-  if (!apiConfigured() || resumed) return
+  if (resumed) return
   resumed = true
-  const session = readSession()
+  const query = new URLSearchParams(window.location.search)
+  let bundle: string | null = null
+  try { bundle = localStorage.getItem(BUNDLE_KEY) } catch { /* ignore */ }
+  if (bundle && !query.has('example') && !query.has('job')) {
+    try { await (await import('./savedBundle')).restoreSavedBundle() }
+    catch (e) {
+      useStore.setState({ jobError: `Could not restore saved ZIP: ${(e as Error).message}` })
+      try { localStorage.removeItem(BUNDLE_KEY) } catch { /* ignore */ }
+    }
+    return
+  }
+  let cached: string | null = null
+  try { cached = localStorage.getItem(EXAMPLE_KEY) } catch { /* ignore */ }
+  if (query.get('example') === 'dds' || (cached === 'dds' && !query.has('job'))) {
+    try {
+      await loadCompletedExample()
+      const url = new URL(window.location.href)
+      url.searchParams.delete('example')
+      history.replaceState(null, '', url)
+    } catch (e) { useStore.getState().log(`example › ${(e as Error).message}`, 'warn') }
+    return
+  }
+  if (!apiConfigured()) return
+  let session = readSession()
+  const linkedJob = new URLSearchParams(window.location.search).get('job')
+  if (linkedJob) {
+    try {
+      const job = await getJob(linkedJob)
+      const p = job.placement
+      if (!p || p.provenance.source !== 'osm') throw new Error('This link requires a saved OpenStreetMap placement.')
+      const lat = p.frame.origin_latitude, lon = p.frame.origin_longitude
+      const footprint = sceneRing(p.request.footprint.exterior)
+      session = {
+        jobId: job.job_id, fingerprint: null, attempt: 0,
+        address: p.provenance.feature_id,
+        geo: { query: p.provenance.feature_id, displayName: `Saved design · ${p.provenance.feature_id}`,
+          lat, lon, footprint, footprintLatLon: footprint.map(v => unproject(v, lat, lon)),
+          neighbors: (p.request.neighbors ?? []).map(n => sceneRing(n.exterior)), source: 'osm',
+          osmId: p.provenance.feature_id, identityConfirmed: p.provenance.identity_confirmed,
+          bucket: geohash(lat, lon), areaM2: polygonArea(footprint) },
+        presetId: 'campus', prompt: 'Cached design. The original generation prompt is included in the exported bundle.',
+        strength: 0.8, stage: 'explore',
+      }
+      writeSession(session)
+      try { localStorage.removeItem(EXAMPLE_KEY) } catch { /* ignore */ }
+      const url = new URL(window.location.href)
+      url.searchParams.delete('job')
+      history.replaceState(null, '', url)
+    } catch (e) {
+      useStore.setState({ jobError: `Could not open saved design: ${(e as Error).message}` })
+      useStore.getState().log(`saved design › ${(e as Error).message}`, 'warn')
+      return
+    }
+  }
   startPersisting()
   if (!session) return
   const s = useStore.getState()
@@ -286,6 +354,7 @@ export async function resumeSession() {
     presetId: session.presetId,
     prompt: session.prompt,
     strength: session.strength,
+    targetPolycount: session.targetPolycount ?? 60000,
   })
   if (!session.jobId) {
     if (session.geo) s.set({ stage: 'ingest' })
@@ -305,9 +374,12 @@ export async function resumeSession() {
     return
   }
   s.log(`job › re-attached to ${job.job_id.slice(0, 8)} after reload (${job.status})`, 'ok')
-  applyJob(job)
+  await applyJob(job)
   // Return to the stage the user was on, as long as its inputs came back with the job.
-  const back: StageId = session.stage === 'redesign' || session.stage === 'reconstruct' ? session.stage
+  if (useStore.getState().job?.job_id !== job.job_id) return
+  const restored = useStore.getState().placement
+  const back: StageId = restored && (session.stage === 'fit' || session.stage === 'explore') ? session.stage
+    : session.stage === 'redesign' || session.stage === 'reconstruct' ? session.stage
     : artifactUrl(job, 'model') ? 'reconstruct' : 'redesign'
   s.set({ stage: session.geo ? back : 'ingest' })
   if (!isTerminal(job.status)) follow(job.job_id)
@@ -319,7 +391,7 @@ export async function reattach() {
   if (!job) return
   useStore.setState({ jobError: null })
   try {
-    applyJob(await getJob(job.job_id))
+    await applyJob(await getJob(job.job_id))
     if (!isTerminal(useStore.getState().job!.status)) follow(job.job_id)
   } catch (e) {
     useStore.setState({ jobError: `Still cannot reach the pipeline API: ${(e as Error).message}` })

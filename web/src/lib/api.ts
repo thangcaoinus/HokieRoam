@@ -1,3 +1,4 @@
+import { promptError } from './creativePrompt'
 // Client for the Groundtruth pipeline API — the frozen v1 contract (work-split.md P0).
 //
 // The types below mirror `server/app/schemas.py` character for character. If a name changes on one
@@ -174,6 +175,7 @@ export interface JobView {
   provider_tasks: Record<string, string>
   /** 0-100 from the provider, or null when it reports none. Render this; never fake it. */
   progress: number | null
+  target_polycount?: number | null
   /** { artifact name -> url path on this server }. Resolve with `artifactUrl`. */
   artifacts: Partial<Record<ArtifactName, string>>
   placement: PlacementManifest | null
@@ -270,6 +272,7 @@ export interface CreateJobInput {
   prompt: string
   /** 0..1. Meshy has no numeric strength knob; the server folds it into the prompt text. */
   strength: number
+  targetPolycount?: number
   /**
    * Stable per logical request, and supplied by the caller on purpose: a retried POST that
    * generated its own key would become a second paid generation. Reuse the key to re-attach.
@@ -287,6 +290,8 @@ export function createJob(input: CreateJobInput): Promise<JobView> {
   if (input.images.length > MAX_VIEWS) {
     throw new ApiError(0, `At most ${MAX_VIEWS} photos are supported (Meshy's limit)`)
   }
+  const issue = promptError(input.prompt)
+  if (issue) throw new ApiError(0, issue)
   const form = new FormData()
   // Repeated `image` parts, in view order; the server maps them to source, source_2, ...
   input.images.forEach((blob, i) => {
@@ -294,6 +299,7 @@ export function createJob(input: CreateJobInput): Promise<JobView> {
   })
   form.append('prompt', input.prompt)
   form.append('strength', String(input.strength))
+  if (input.targetPolycount !== undefined) form.append('target_polycount', String(input.targetPolycount))
   form.append('kind', input.kind ?? 'pipeline')
   return request<JobView>('/v1/jobs', {
     method: 'POST',

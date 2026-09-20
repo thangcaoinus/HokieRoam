@@ -1,0 +1,23 @@
+Job: 41db2b5c7f3440869efeebf3ed788874
+('redesign', 'queued', None, 4)
+('redesign', 'running', 30, 4)
+('redesign', 'submitting', 100, 5)
+('redesign', 'running', 30, 5)
+('redesign', 'running', 100, 5)
+('redesign', 'running', 20, 6)
+('redesign', 'running', 30, 6)
+('redesign', 'running', 30, 7)
+('reconstruct', 'submitting', 100, 8)
+('reconstruct', 'running', 1, 8)
+('reconstruct', 'running', 7, 8)
+('reconstruct', 'running', 15, 8)
+('reconstruct', 'running', 22, 8)
+('reconstruct', 'running', 27, 8)
+('reconstruct', 'running', 42, 8)
+('reconstruct', 'running', 49, 8)
+('reconstruct', 'running', 51, 8)
+('reconstruct', 'running', 93, 8)
+('reconstruct', 'running', 99, 8)
+('reconstruct', 'running', 100, 8)
+Final: succeeded None
+Saved: /home/thangcao/VTHax14/samples/burruss-medieval-4view/bundle.zip

@@ -226,3 +226,22 @@ def test_download_enforces_the_configured_size_cap():
     handler, _ = recorder(httpx.Response(200, content=b"x" * 500))
     with pytest.raises(ProviderError):
         run(provider(handler, max_asset_bytes=100).download("https://cdn/a.glb"))
+
+
+def test_reconstruct_uses_the_jobs_target_not_the_server_default():
+    handler, calls = recorder(httpx.Response(200, json={"result": "targeted"}))
+    run(provider(handler, target_polycount=60000).submit(
+        "reconstruct", [PNG], "scorched", 0.8, target_polycount=12000))
+    payload = json.loads(calls[0].content)
+    assert payload["should_remesh"] is True
+    assert payload["target_polycount"] == 12000
+
+
+def test_creative_appearance_instructions_reach_image_provider():
+    handler, calls = recorder(httpx.Response(200, json={"result": "creative-task"}))
+    prompt = "Terracotta walls with copper fins.\nAdd ivy around the windows."
+    run(provider(handler).submit("redesign", [PNG], prompt, 0.65))
+    sent = json.loads(calls[0].content)["prompt"]
+    assert sent.startswith(prompt + "\n")
+    assert "0.65/1" in sent
+    assert "Preserve building silhouette" in sent

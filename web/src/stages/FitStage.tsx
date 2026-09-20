@@ -7,6 +7,7 @@ import { exportGLB } from '../lib/reconstruct'
 import FitScene, { type Layers } from '../components/FitScene'
 import { CandidateThumb, FitPlot } from '../components/FitPlot'
 import MatrixView from '../components/MatrixView'
+import ServerFitStage from './ServerFitStage'
 
 const SOLVER = [
   { t: 'Normalize', d: 'Y-up · meters' },
@@ -63,6 +64,11 @@ function transformJSON(fit: FitResult) {
 }
 
 export default function FitStage() {
+  const serverMesh = useStore((s) => !!(s.mesh?.meta.jobId || s.mesh?.meta.exampleId || s.mesh?.meta.bundle))
+  return serverMesh ? <ServerFitStage /> : <PreviewFitStage />
+}
+
+function PreviewFitStage() {
   const s = useStore()
   const progress = useRef(s.fit ? 7 : 0)
   const [step, setStep] = useState(s.fit ? 7 : -1)

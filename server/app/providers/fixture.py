@@ -27,7 +27,8 @@ class FixtureProvider:
         self.delay_seconds = max(0.0, delay_seconds)
 
     async def submit(
-        self, stage: Stage, images: list[bytes], prompt: str, strength: float
+        self, stage: Stage, images: list[bytes], prompt: str, strength: float,
+        *, target_polycount: int | None = None
     ) -> str:
         if not images:
             raise ProviderError("At least one source image is required")

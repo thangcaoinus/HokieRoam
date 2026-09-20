@@ -87,6 +87,7 @@ async def create_job(
     strength: Annotated[float, Form(ge=0, le=1)],
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=200)],
     kind: Annotated[JobKind, Form()] = "pipeline",
+    target_polycount: Annotated[int | None, Form(ge=100, le=300000)] = None,
 ) -> JobView:
     """Accept 1-4 photos of one building and start generation. Returns 202 at once, never the asset.
 
@@ -97,6 +98,8 @@ async def create_job(
     ``Idempotency-Key`` becomes the storage ``request_key``, which is UNIQUE: repeating a request
     with the same key returns the same job rather than paying for a second generation.
     """
+    if not prompt.strip():
+        raise HTTPException(status_code=422, detail="Describe how you want the building to look.")
     if not image:
         raise HTTPException(status_code=422, detail="At least one source photo is required")
     if len(image) > settings.max_views:
@@ -118,7 +121,7 @@ async def create_job(
             raise HTTPException(status_code=415, detail=str(exc)) from exc
 
     job = pipeline.create(request_key=idempotency_key, kind=kind, images=images,
-                          prompt=prompt, strength=strength)
+                          prompt=prompt, strength=strength, target_polycount=target_polycount)
     if job["status"] not in TERMINAL_STATUSES:
         pipeline.schedule(job["job_id"])
     return view(job)
