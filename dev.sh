@@ -131,5 +131,16 @@ WEB_JOB=$!
 
 # Wait on whichever side exits first; the EXIT trap tears the other one down. Waiting (rather
 # than running vite in the foreground) is what lets Ctrl-C run the trap right away.
-wait -n $API_JOB $WEB_JOB   # unquoted: in --sim mode API_JOB is empty and drops out 2>/dev/null || true
+#
+# This polls instead of using `wait -n`, because macOS ships bash 3.2 and `wait -n` arrived in
+# 4.3. There it fails with "wait: -n: invalid option", `set -e` takes the non-zero status, and
+# the EXIT trap kills both servers the instant they finished starting — the whole stack came up
+# and died immediately. `sleep` is interruptible, so Ctrl-C still runs the trap right away, which
+# is the property `wait -n` was chosen for. Unquoted: in --sim mode API_JOB is empty and drops out.
+while :; do
+  for job in $API_JOB $WEB_JOB; do
+    kill -0 "$job" 2>/dev/null || break 2
+  done
+  sleep 1
+done
 say "a process exited — shutting the other one down"
