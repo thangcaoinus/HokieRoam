@@ -8,6 +8,30 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
+## Multi-model sandbox
+
+Open **Sandbox · multiple models** in the sidebar. Import multiple `.glb` or `.obj` files
+at once, or drop them onto the scene. GLB preserves embedded textures; OBJ imports geometry.
+You can also add the current pipeline model. Imports are centered, grounded, and initially spaced apart.
+Matching models preserve the full fitted dimensions used by Explore. Unit-sized imports (all dimensions
+under 5 m) scale uniformly to the current fitted building’s height, or a labeled 20 m estimate when
+there is no building reference. **Recalculate building sizes** reapplies this sizing to existing models;
+the inspector shows the source and lets you override height. Estimates are not measured dimensions.
+
+Select a model in the scene or list, then drag its ground-plane handles. The inspector edits X/Z,
+rotation, and uniform size through height. **Frame all** fits the entire scene. **Walk scene** keeps
+every model visible: click to capture the mouse, use WASD, Shift to sprint, Space to jump, and Esc
+to release. Walking uses Explore’s third-person camera, environment, minimap, live readout,
+reset controls, and collision against every model’s transformed plan silhouette. Q/E orbit the
+camera. **Edit scene** returns to arranging.
+
+The sandbox is a separate local scene, retained across pipeline navigation but cleared on page refresh.
+It has no geographic anchor or placement score. Set model heights when imported units are unsuitable.
+
+With a Vite dev server on port 5175, `node scripts/check-sandbox.mjs` verifies multi-import, independent
+transforms, a real gizmo drag, walking, navigation, failed imports, and removal. Set `PLAYWRIGHT_MODULE`
+to an installed Playwright package and `CHECK_WEB` to override the server URL if needed.
+
 ## Completed real example
 
 Click **Load completed real example**, or open `/?example=dds`. Static files in

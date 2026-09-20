@@ -8,9 +8,11 @@ import RedesignStage from './stages/RedesignStage'
 import ReconstructStage from './stages/ReconstructStage'
 import FitStage from './stages/FitStage'
 import ExploreStage from './stages/ExploreStage'
+import SandboxStage from './stages/SandboxStage'
 
 
 const VIEWS: Record<StageId, () => JSX.Element> = {
+  sandbox: SandboxStage,
   ingest: IngestStage,
   redesign: RedesignStage,
   reconstruct: ReconstructStage,
@@ -72,6 +74,7 @@ export default function App() {
               </li>
             ))}
           </ol>
+          <button className={`btn ${s.stage === 'sandbox' ? 'primary' : ''}`} style={{ margin: '0 18px 18px' }} onClick={() => s.go('sandbox')}>Sandbox · multiple models</button>
           {(s.geo || s.mesh || s.fit || s.placement) && (
             <div className="rail-summary">
               {s.geo && <div className="kv"><span>Footprint</span><span>{s.geo.areaM2.toFixed(0)} m² · {s.geo.source === 'osm' ? s.geo.osmId : s.geo.source === 'derived' ? 'derived from model' : 'demo'}</span></div>}
@@ -88,7 +91,7 @@ export default function App() {
           <Console />
         </aside>
 
-        <main className={`main ${s.stage === 'explore' ? 'fullbleed' : ''}`}>
+        <main className={`main ${s.stage === 'explore' || s.stage === 'sandbox' ? 'fullbleed' : ''}`}>
           <AnimatePresence mode="wait">
             <motion.div
               key={s.stage}
@@ -96,7 +99,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
               exit={{ opacity: 0, y: -10, filter: 'blur(6px)' }}
               transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
-              style={s.stage === 'explore' ? { position: 'absolute', inset: 0 } : undefined}
+              style={s.stage === 'explore' || s.stage === 'sandbox' ? { position: 'absolute', inset: 0 } : undefined}
             >
               <View />
             </motion.div>

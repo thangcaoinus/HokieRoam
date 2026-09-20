@@ -7,7 +7,7 @@ import type { JobView, PlacementManifest } from './lib/api'
 import { placementMatches } from './lib/placement'
 import { PRESETS } from './lib/presets'
 
-export type StageId = 'ingest' | 'redesign' | 'reconstruct' | 'fit' | 'explore'
+export type StageId = 'ingest' | 'redesign' | 'reconstruct' | 'fit' | 'explore' | 'sandbox'
 export const STAGES: { id: StageId; title: string; sub: string }[] = [
   { id: 'ingest', title: 'Ingest', sub: 'Address · photos · GIS footprint' },
   { id: 'redesign', title: 'Redesign', sub: 'Image-to-image restyle' },
@@ -116,6 +116,7 @@ export const useStore = create<State>((set) => ({
 /** Which stages are reachable given current artefacts. */
 export function unlocked(s: Pick<State, 'geo' | 'photos' | 'concept' | 'mesh' | 'fit' | 'placement'>): Record<StageId, boolean> {
   return {
+    sandbox: true,
     ingest: true,
     redesign: !!s.geo && s.photos.length > 0,
     reconstruct: !!s.geo,
@@ -128,6 +129,7 @@ export function completed(s: Pick<State, 'geo' | 'photos' | 'concept' | 'mesh' |
   // A freely imported object brings its own site and never needs photos, so Ingest is complete
   // for it as soon as the outline exists.
   return {
+    sandbox: false,
     ingest: !!s.geo && (s.photos.length > 0 || s.geo.source === 'derived'),
     redesign: !!s.concept, reconstruct: !!s.mesh, fit: !!(s.fit || s.placement), explore: false,
   }
