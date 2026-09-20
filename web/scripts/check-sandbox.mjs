@@ -54,11 +54,17 @@ try {
   assert.notEqual(dragged[0].x, before[0].x, 'gizmo drag must commit the new position')
   assert.deepEqual(dragged[1], before[1], 'drag must only move the selected model')
   await page.getByRole('button', { name: 'Walk scene', exact: true }).click()
-  await page.waitForFunction(async () => {
-    const { _roots } = await import('/node_modules/.vite/deps/@react-three_fiber.js')
-    const state = _roots.get(document.querySelector('canvas'))?.store.getState()
+  // The R3F roots are imported once, up front: an ASYNC waitForFunction predicate returns a
+  // promise, the in-page poller only tests it for truthiness, and the wait therefore resolves on
+  // the first tick whatever the predicate goes on to decide. The predicate below stays synchronous
+  // so it is actually polled until the walk player exists.
+  await page.evaluate(async () => {
+    window.r3fRoots = (await import('/node_modules/.vite/deps/@react-three_fiber.js'))._roots
+  })
+  await page.waitForFunction(() => {
+    const state = window.r3fRoots.get(document.querySelector('canvas'))?.store.getState()
     if (!state?.scene.getObjectByName('walk-player')) return false
-    // Retain the scene reference across StrictMode's delayed renderer-root cleanup.
+    // Retain the scene reference across R3F's delayed renderer-root cleanup.
     window.sandboxWalkTestState = state
     state.setDpr(0.5)
     return true

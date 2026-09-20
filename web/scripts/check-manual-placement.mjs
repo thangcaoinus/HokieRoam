@@ -19,7 +19,10 @@ try {
   await page.getByRole('button', { name: 'Walk around', exact: true }).waitFor({ timeout: 60000 })
 
   await page.getByRole('button', { name: /Fit & Align/ }).click()
-  const verdict = (await page.getByTestId('placement-status').innerText()).match(/Placement: (\w+)/)[1]
+  // Read the verdict as data: the band renders it as a styled cell, and asserting on a
+  // display string would break on every wording change without catching a real regression.
+  const verdict = await page.getByTestId('placement-status').getAttribute('data-verdict')
+  assert.ok(verdict, 'no computed verdict on the placement band')
   await page.getByRole('button', { name: 'Adjust', exact: true }).click()
   const svg = page.getByRole('img', { name: 'Top-down manual placement editor' })
   await svg.waitFor()
@@ -45,7 +48,8 @@ try {
   await page.getByTestId('manual-placement').waitFor()
   const banner = await page.getByTestId('manual-placement').innerText()
   assert.match(banner, /Manually corrected/)
-  assert.match(await page.getByTestId('placement-status').innerText(), new RegExp(`Placement: ${verdict}`))
+  assert.equal(await page.getByTestId('placement-status').getAttribute('data-verdict'), verdict,
+    'a manual correction changed the computed verdict')
 
   // The correction reaches Explore, and walking uses it.
   await page.getByRole('button', { name: 'Explore this design', exact: true }).click()

@@ -70,7 +70,6 @@ export default function RedesignStage() {
     : s.concept ? 'Regenerate concept' : 'Generate concept'
 
   if (s.example || s.bundle) return <div className="stage">
-    <div className="eyebrow">Saved design · source and concept</div>
     <h1 className="h1">From place to <em>idea.</em></h1>
     <p className="lede">{s.bundle ? `Imported result · provider recorded as ${s.mesh?.meta.provider}.` : 'Cached Meshy generation.'} This is the prompt and imagery saved with the model.</p>
     {s.mesh?.meta.provider === 'fixture' && <OriginBanner kind="fixture" />}
@@ -81,7 +80,6 @@ export default function RedesignStage() {
 
   return (
     <div className="stage">
-      <div className="eyebrow">Stage 02 · Generative redesign</div>
       <h1 className="h1">Reimagine it. <em>Keep the bones.</em></h1>
       <p className="lede">An image-to-image pass restyles materials and surfaces while holding the original architectural geometry, so the concept still maps onto the real footprint.</p>
 
@@ -160,7 +158,7 @@ export default function RedesignStage() {
               {api && jobActive && !s.concept && (
                 <div className="progress-overlay">
                   <div className="progress-box">
-                    <div className="eyebrow">{job!.provider} · {job!.stage}</div>
+                    <div className="field-label">{job!.provider} · {job!.stage}</div>
                     <div style={{ font: '600 16px var(--display)', margin: '10px 0 2px' }}>Waiting for the concept image</div>
                     <div className="mono dimmer" style={{ fontSize: 12 }}>{statusText(job!)}</div>
                     <ProgressBar job={job!} />

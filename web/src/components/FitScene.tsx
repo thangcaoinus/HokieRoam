@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import type { FitResult } from '../lib/fit'
 import type { V2 } from '../lib/geo'
 import type { MeshAsset } from '../lib/reconstruct'
+import { SCENE } from '../lib/sceneTheme'
 
 export interface Layers { footprint: boolean; aabb: boolean; obb: boolean; neighbors: boolean }
 
@@ -72,9 +73,9 @@ function Footprint({ poly }: { poly: V2[] }) {
     <group>
       <mesh rotation-x={-Math.PI / 2} position-y={0.03}>
         <shapeGeometry args={[shape]} />
-        <meshBasicMaterial color="#ff6b2c" transparent opacity={0.16} depthWrite={false} />
+        <meshBasicMaterial color={SCENE.footprint} transparent opacity={0.17} depthWrite={false} />
       </mesh>
-      <Line points={loop(poly)} color="#ff6b2c" lineWidth={2.5} />
+      <Line points={loop(poly)} color={SCENE.footprint} lineWidth={2.5} />
     </group>
   )
 }
@@ -90,9 +91,9 @@ function Neighbor({ poly }: { poly: V2[] }) {
   return (
     <group>
       <mesh geometry={geo} receiveShadow castShadow>
-        <meshStandardMaterial color="#26221f" roughness={1} transparent opacity={0.85} />
+        <meshStandardMaterial color={SCENE.neighbor} roughness={0.95} transparent opacity={0.9} />
       </mesh>
-      <Line points={loop(poly, 9.02)} color="#5a524b" lineWidth={1} />
+      <Line points={loop(poly, 9.02)} color={SCENE.neighborEdge} lineWidth={1} />
     </group>
   )
 }
@@ -115,10 +116,10 @@ function Scene({ asset, fit, footprint, neighbors, progress, layers }: Props) {
       {layers.footprint && <Footprint poly={footprint} />}
       {layers.neighbors && neighbors.map((n, i) => <Neighbor key={i} poly={n} />)}
       <group ref={obbRef}>
-        <Line points={loop(fit.footprintOBB.corners, 0.08)} color="#5ee1ff" lineWidth={1.5} dashed dashSize={1.2} gapSize={0.8} />
+        <Line points={loop(fit.footprintOBB.corners, 0.08)} color={SCENE.reference} lineWidth={1.5} dashed dashSize={1.2} gapSize={0.8} />
       </group>
       <group ref={aabbRef}>
-        <box3Helper args={[aabb, new THREE.Color('#5ee1ff')]} />
+        <box3Helper args={[aabb, new THREE.Color(SCENE.reference)]} />
       </group>
       <AnimatedMesh asset={asset} fit={fit} progress={progress} />
     </>
@@ -137,16 +138,16 @@ interface Props {
 export default function FitScene(props: Props) {
   return (
     <Canvas shadows camera={{ position: [-58, 62, 78], fov: 40 }} dpr={[1, 2]}>
-      <color attach="background" args={['#0a0909']} />
-      <fog attach="fog" args={['#0a0909', 120, 260]} />
-      <hemisphereLight args={['#ffe2c4', '#1a1210', 0.75]} />
-      <directionalLight position={[50, 80, 30]} intensity={2.3} color="#ffd2a6" castShadow shadow-mapSize={[2048, 2048]} shadow-camera-left={-80} shadow-camera-right={80} shadow-camera-top={80} shadow-camera-bottom={-80} />
-      <directionalLight position={[-40, 25, -50]} intensity={0.5} color="#6fb7ff" />
+      <color attach="background" args={[SCENE.bg]} />
+      <fog attach="fog" args={[SCENE.bg, 150, 300]} />
+      <hemisphereLight args={[SCENE.skyLight, SCENE.groundLight, 1.9]} />
+      <directionalLight position={[50, 80, 30]} intensity={1.9} color={SCENE.keyLight} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0008} shadow-camera-left={-80} shadow-camera-right={80} shadow-camera-top={80} shadow-camera-bottom={-80} />
+      <directionalLight position={[-40, 25, -50]} intensity={0.45} color={SCENE.fillLight} />
       <mesh rotation-x={-Math.PI / 2} receiveShadow position-y={-0.01}>
         <planeGeometry args={[400, 400]} />
-        <meshStandardMaterial color="#141110" roughness={1} />
+        <meshStandardMaterial color={SCENE.ground} roughness={1} />
       </mesh>
-      <Grid args={[300, 300]} position-y={0.005} cellSize={1} cellThickness={0.5} cellColor="#231d19" sectionSize={10} sectionThickness={1} sectionColor="#3d2a1f" fadeDistance={220} fadeStrength={1.3} infiniteGrid />
+      <Grid args={[300, 300]} position-y={0.005} cellSize={1} cellThickness={0.5} cellColor={SCENE.gridCell} sectionSize={10} sectionThickness={1} sectionColor={SCENE.gridSection} fadeDistance={220} fadeStrength={1.3} infiniteGrid />
       <Scene {...props} />
       <OrbitControls makeDefault target={[0, 6, 0]} maxPolarAngle={Math.PI / 2.1} enableDamping />
     </Canvas>

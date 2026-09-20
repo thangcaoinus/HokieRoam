@@ -31,7 +31,7 @@ try {
  await page.getByRole('button',{name:'Orbit view',exact:true}).click()
  await page.getByRole('button',{name:'Inspect / export',exact:true}).click()
  await page.getByTestId('placement-status').filter({hasText:'rejected'}).waitFor()
- await page.getByText('Inspect placement, metrics and transform',{exact:true}).click()
+ await page.getByText('Inspect the transform',{exact:true}).click()
  const matrix=[]
  for(let r=0;r<4;r++)for(let c=0;c<4;c++)matrix.push((Math.abs(placement.selected.matrix_column_major[c*4+r])<1e-9?0:placement.selected.matrix_column_major[c*4+r]).toFixed(4))
  assert.deepEqual(await page.locator('.matrix span').allTextContents(),matrix)

@@ -4,7 +4,7 @@ export default function Progress({ title, steps, current }: { title: string; ste
   return (
     <div className="progress-overlay">
       <div className="progress-box">
-        <div className="eyebrow">{title}</div>
+        <div className="field-label">{title}</div>
         <ul className="plist">
           {steps.map((s, i) => (
             <li key={s} className={i < current ? 'done' : i === current ? 'on' : ''}>

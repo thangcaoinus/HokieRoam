@@ -127,7 +127,6 @@ export default function SandboxFitStage() {
 
   return (
     <div className="stage">
-      <div className="eyebrow">Stage 04 · Derived site · free placement</div>
       <div className="row wrap" style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
           <h1 className="h1">Your object, <em>measured and grounded</em>.</h1>

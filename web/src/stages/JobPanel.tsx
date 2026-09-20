@@ -78,7 +78,7 @@ export default function JobPanel({ focus }: { focus: Step }) {
       </ul>
 
       {job.status === 'submission-unknown' && (
-        <div className="flag warn" style={{ marginTop: 14, borderColor: 'rgba(255,209,102,.35)' }}>
+        <div className="flag warn" style={{ marginTop: 14 }}>
           <AlertTriangle size={16} />
           <span>
             <b>Submission status unknown.</b> The provider may already have accepted — and billed — this

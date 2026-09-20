@@ -159,11 +159,11 @@ export function Player({ state, keys, colliders }: { state: React.MutableRefObje
         </mesh>
         <mesh position={[0, 1.45, RADIUS - 0.04]}>
           <boxGeometry args={[0.52, 0.14, 0.12]} />
-          <meshStandardMaterial color="#ff6b2c" emissive="#ff6b2c" emissiveIntensity={3} />
+          <meshStandardMaterial color="#c2341d" emissive="#c2341d" emissiveIntensity={2.2} />
         </mesh>
         <mesh rotation-x={-Math.PI / 2} position-y={0.02}>
           <ringGeometry args={[0.6, 0.72, 40]} />
-          <meshBasicMaterial color="#ff6b2c" transparent opacity={0.6} />
+          <meshBasicMaterial color="#c2341d" transparent opacity={0.65} />
         </mesh>
       </group>
     </>
@@ -178,7 +178,7 @@ function World({ fit, asset, footprint, neighbors, style, state, keys, show, mod
   const tex = useMemo(() => groundTexture(style), [style])
   useEffect(() => () => tex.dispose(), [tex])
   const groundSpan = models ? Math.max(800, ...models.flatMap(m => m.fit.chosen.poly.flatMap(p => [Math.abs(p.x) * 2 + 100, Math.abs(p.z) * 2 + 100]))) : 800
-  // The orange footprint is a DRAWN REFERENCE, not geometry: blocking it walled the player out of
+  // The footprint ring is a DRAWN REFERENCE, not geometry: blocking it walled the player out of
   // empty ground wherever the building did not fill its own footprint. Only real volume collides.
   const colliders = useMemo(() => [
     ...(models ? models.map(m => ({ poly: m.fit.chosen.poly, name: m.asset.meta.source })) : [{ poly: fit.chosen.poly, name: 'building' }]),
@@ -198,8 +198,8 @@ function World({ fit, asset, footprint, neighbors, style, state, keys, show, mod
       </mesh>
       {models ? models.map(m => <PlacedAsset key={m.id} asset={m.asset} matrix={m.fit.matrices.M} />) : <PlacedAsset asset={asset} matrix={fit.matrices.M} />}
       {neighbors.map((n, i) => <Extruded key={i} poly={n} h={6 + ((i * 7) % 9)} color={night ? '#1c1a26' : '#5b5048'} />)}
-      {show.footprint && (models ? models.map(m => <Line key={m.id} points={loop(m.fit.chosen.poly, 0.05)} color="#ff6b2c" lineWidth={3} />) : <Line points={loop(footprint, 0.05)} color="#ff6b2c" lineWidth={3} />)}
-      {show.bbox && (models ?? [{ id: 'primary', fit }]).map(m => <Line key={m.id} points={loop(m.fit.chosen.poly, 0.07)} color="#5ee1ff" lineWidth={2} dashed dashSize={0.8} gapSize={0.5} />)}
+      {show.footprint && (models ? models.map(m => <Line key={m.id} points={loop(m.fit.chosen.poly, 0.05)} color="#e8503a" lineWidth={3} />) : <Line points={loop(footprint, 0.05)} color="#e8503a" lineWidth={3} />)}
+      {show.bbox && (models ?? [{ id: 'primary', fit }]).map(m => <Line key={m.id} points={loop(m.fit.chosen.poly, 0.07)} color="#f4f2ed" lineWidth={2} dashed dashSize={0.8} gapSize={0.5} />)}
       {style === 'scorched' && <Sparkles count={260} scale={[120, 20, 120]} position={[0, 8, 0]} size={3} speed={0.5} color="#ffb35c" opacity={0.6} />}
       {night && <Sparkles count={200} scale={[120, 30, 120]} position={[0, 10, 0]} size={2} speed={0.3} color="#2ef2ff" />}
       <Player state={state} keys={keys} colliders={colliders} />
@@ -242,16 +242,16 @@ function Minimap({ footprint, neighbors, state, fit }: { footprint: V2[]; neighb
   return (
     <svg className="minimap" viewBox="0 0 200 200">
       <defs><clipPath id="mm"><circle cx="100" cy="100" r="98" /></clipPath></defs>
-      <circle cx="100" cy="100" r="98" fill="rgba(0,0,0,.5)" />
+      <circle cx="100" cy="100" r="98" fill="#fbfaf7" stroke="#b3ada1" />
       <g clipPath="url(#mm)">
-        {[40, 80].map((r) => <circle key={r} cx="100" cy="100" r={r} fill="none" stroke="rgba(255,255,255,.07)" />)}
-        {neighbors.map((n, i) => <polygon key={i} points={n.map(P).join(' ')} fill="rgba(255,255,255,.12)" />)}
-        <polygon points={footprint.map(P).join(' ')} fill="rgba(255,107,44,.35)" stroke="#ff6b2c" strokeWidth="1.5" />
+        {[40, 80].map((r) => <circle key={r} cx="100" cy="100" r={r} fill="none" stroke="#dcd8d0" />)}
+        {neighbors.map((n, i) => <polygon key={i} points={n.map(P).join(' ')} fill="#dcd7ce" stroke="#b3ada1" strokeWidth=".75" />)}
+        <polygon points={footprint.map(P).join(' ')} fill="rgba(194,52,29,.22)" stroke="#c2341d" strokeWidth="1.5" />
         <g ref={dot}>
-          <path d="M0-7 5 5 0 2-5 5Z" fill="#fff" />
+          <path d="M0-7 5 5 0 2-5 5Z" fill="#16181c" />
         </g>
       </g>
-      <text x="100" y="14" textAnchor="middle" fontSize="10" fill="#a8a39c" fontFamily="JetBrains Mono">N</text>
+      <text x="100" y="15" textAnchor="middle" fontSize="10" fontWeight="700" fill="#4a4f56" fontFamily="Archivo" letterSpacing="1">N</text>
     </svg>
   )
 }
@@ -272,7 +272,7 @@ function Readout({ state, geo }: { state: React.MutableRefObject<PlayerState>; g
   return (
     <>
       <div className="glass" style={{ padding: '12px 16px', minWidth: 250 }}>
-        <div className="eyebrow" style={{ fontSize: 10 }}>{anchored ? 'Live · map-anchored' : 'Live · derived site · no anchor'}</div>
+        <div className="field-label" style={{ fontSize: 10 }}>{anchored ? 'Live · map-anchored' : 'Live · derived site · no anchor'}</div>
         <div style={{ font: '600 17px var(--display)', margin: '4px 0 6px' }}>{geo.displayName.split(',')[0]}</div>
         <div className="kv"><span>Position</span><span>{anchored
           ? `${r.lat.toFixed(6)}, ${r.lon.toFixed(6)}`
@@ -393,7 +393,7 @@ export function WalkStage({ sandbox, onExit }: { sandbox?: WalkModel[]; onExit?:
       {!focused && (
         <div className="focus-prompt" style={{ pointerEvents: 'none' }}>
           <div className="glass inner" style={{ pointerEvents: 'auto', cursor: 'pointer' }} onClick={() => wrap.current?.requestPointerLock()}>
-            <MousePointer2 size={26} color="#ff6b2c" />
+            <MousePointer2 size={26} color="#c2341d" />
             <div style={{ font: '600 20px var(--display)', margin: '8px 0 4px' }}>Click to enter the site</div>
             <div className="dimmer" style={{ fontSize: 13 }}>Mouse to look · WASD to move · Esc to release</div>
           </div>

@@ -59,9 +59,9 @@ export default function MapView({ geo, loading }: { geo: GeoResult | null; loadi
               <circle cx="36" cy="36" r="34" stroke="currentColor" strokeDasharray="3 5" />
               <circle cx="36" cy="36" r="20" stroke="currentColor" strokeDasharray="2 4" />
               <path d="M36 0v72M0 36h72" stroke="currentColor" strokeOpacity=".4" />
-              <path d="M28 30h16v12H28z" stroke="#ff6b2c" strokeWidth="1.5" />
+              <path d="M28 30h16v12H28z" stroke="#c2341d" strokeWidth="1.5" />
             </svg>
-            <div style={{ fontFamily: 'var(--display)', fontSize: 16, color: 'var(--text-2)' }}>Awaiting coordinates</div>
+            <div style={{ fontWeight: 650, fontSize: 15, color: 'var(--ink-2)' }}>Awaiting coordinates</div>
             <div style={{ fontSize: 12.5 }}>Resolve an address to pull its authoritative footprint</div>
           </div>
         </div>
@@ -75,51 +75,49 @@ export default function MapView({ geo, loading }: { geo: GeoResult | null; loadi
           </div>
           <svg width={size.w} height={size.h}>
             <defs>
-              <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="6" result="b" />
-                <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-              </filter>
-              <pattern id="hatch" width="8" height="8" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
-                <line x1="0" y1="0" x2="0" y2="8" stroke="#ff6b2c" strokeOpacity=".35" strokeWidth="2" />
+              {/* Cadastral hatch: fine ruled lines at 45deg, the way a plat marks the subject parcel. */}
+              <pattern id="hatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+                <line x1="0" y1="0" x2="0" y2="6" stroke="#c2341d" strokeOpacity=".55" strokeWidth="1" />
               </pattern>
             </defs>
             {geo!.neighbors.map((n, i) => (
-              <polygon key={i} points={n.map(view.P).join(' ')} fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.28)" strokeWidth="1" />
+              <polygon key={i} points={n.map(view.P).join(' ')} fill="rgba(244,242,237,.10)" stroke="rgba(244,242,237,.55)" strokeWidth="1" />
             ))}
             <motion.polygon
               key={geo!.bucket + geo!.footprint.length}
               points={view.obb.corners.map(view.P).join(' ')}
-              fill="none" stroke="#5ee1ff" strokeWidth="1.2" strokeDasharray="6 5"
+              fill="none" stroke="#8ab4dd" strokeWidth="1" strokeDasharray="5 4"
               initial={{ opacity: 0 }} animate={{ opacity: 0.9 }} transition={{ delay: 1 }}
             />
             <motion.polygon
               key={'fp' + geo!.bucket + geo!.footprint.length}
               points={geo!.footprint.map(view.P).join(' ')}
-              fill="url(#hatch)" stroke="#ff6b2c" strokeWidth="2" filter="url(#glow)" strokeLinejoin="round"
+              fill="url(#hatch)" stroke="#e8503a" strokeWidth="1.75" strokeLinejoin="round"
               initial={{ pathLength: 0, opacity: 0 }} animate={{ pathLength: 1, opacity: 1 }} transition={{ duration: 1.2, ease: 'easeInOut' }}
             />
             {geo!.footprint.map((p, i) => {
               const [x, y] = view.P(p).split(',').map(Number)
-              return <motion.circle key={i} cx={x} cy={y} r="3.5" fill="#0b0b0c" stroke="#ffb35c" strokeWidth="1.5" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.6 + i * 0.03 }} />
+              return <motion.rect key={i} x={x - 2.5} y={y - 2.5} width="5" height="5" fill="#f4f2ed" stroke="#e8503a" strokeWidth="1.25" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 + i * 0.02 }} />
             })}
-            <g transform={`translate(${size.w / 2},${size.h / 2})`} stroke="#fff" strokeOpacity=".6">
-              <line x1="-8" x2="8" /><line y1="-8" y2="8" />
+            <g transform={`translate(${size.w / 2},${size.h / 2})`} stroke="#f4f2ed" strokeOpacity=".75">
+              <line x1="-9" x2="9" /><line y1="-9" y2="9" />
             </g>
             {/* north arrow */}
-            <g transform={`translate(${size.w - 34},40)`}>
-              <circle r="18" fill="rgba(8,8,10,.7)" stroke="rgba(255,255,255,.15)" />
-              <path d="M0-11 5 6 0 2-5 6Z" fill="#ff6b2c" />
-              <text y="-22" textAnchor="middle" fill="#a8a39c" fontSize="10" fontFamily="JetBrains Mono">N</text>
+            <g transform={`translate(${size.w - 34},42)`}>
+              <path d="M0-13 6 8 0 3.4-6 8Z" fill="#f4f2ed" stroke="#1b1d21" strokeWidth="1" strokeLinejoin="round" />
+              <path d="M0-13 0 3.4-6 8Z" fill="#1b1d21" />
+              <text y="-19" textAnchor="middle" fill="#f4f2ed" fontSize="10" fontWeight="700" fontFamily="Archivo" letterSpacing="1">N</text>
             </g>
             {/* scale bar */}
             <g transform={`translate(${size.w - 24 - view.barM / view.mpp},${size.h - 26})`}>
-              <rect width={view.barM / view.mpp} height="4" fill="#f1eee9" rx="1" />
-              <rect width={view.barM / view.mpp / 2} height="4" fill="#ff6b2c" rx="1" />
-              <text y="-7" fill="#a8a39c" fontSize="10.5" fontFamily="JetBrains Mono">{view.barM} m</text>
+              {/* Alternating scale bar, as a drawing sheet prints it. */}
+              <rect width={view.barM / view.mpp} height="5" fill="#f4f2ed" stroke="#1b1d21" strokeWidth="1" />
+              <rect width={view.barM / view.mpp / 2} height="5" fill="#1b1d21" />
+              <text y="-6" fill="#f4f2ed" fontSize="10.5" fontWeight="600" fontFamily="Archivo">{view.barM} m</text>
             </g>
           </svg>
           <div className="map-corner">
-            <span className="chip mono" style={{ background: 'rgba(8,8,10,.75)' }}>{anchored ? `z${view.z} · ` : ''}{geo!.source === 'osm' ? `OSM ${geo!.osmId}` : geo!.source === 'derived' ? 'derived outline · no basemap' : 'demo parcel'}</span>
+            <span className="chip mono">{anchored ? `z${view.z} · ` : ''}{geo!.source === 'osm' ? `OSM ${geo!.osmId}` : geo!.source === 'derived' ? 'derived outline · no basemap' : 'demo parcel'}</span>
           </div>
           <div className="map-hud">
             <div className="hud-card"><div className="cap">Footprint</div><div className="big">{geo!.areaM2.toFixed(0)} m²</div></div>

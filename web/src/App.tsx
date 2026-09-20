@@ -28,26 +28,33 @@ export default function App() {
   const open = unlocked(s)
   const done = completed(s)
 
+  // Sandbox is an aside, not one of the numbered sheets, so findIndex returns -1 there and
+  // the header names it instead of indexing STAGES out of bounds.
+  const sheetIndex = STAGES.findIndex((st) => st.id === s.stage)
+  const sheet = STAGES[sheetIndex]
+
   return (
     <>
-      <div className="backdrop"><div className="gridlines" /></div>
       <div className="shell">
         <header className="topbar">
           <div className="brand">
             <div className="brand-mark">
-              <svg width="14" height="14" viewBox="0 0 14 14"><path d="M1 12 7 1.5 13 12Z" fill="#120703" /><path d="M4.4 12 7 7.4 9.6 12Z" fill="#ffb35c" /></svg>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="1.3" strokeLinejoin="round">
+                <path d="M1.2 9.4h9.6M3.6 9.4V4.6L6 3l2.4 1.6v4.8" />
+              </svg>
             </div>
-            <div>GROUNDTRUTH<small>photo → map-ready 3D</small></div>
+            <div>GROUNDTRUTH</div>
+            <small>{sheet ? `Sheet ${sheetIndex + 1} of ${STAGES.length} · ${sheet.title}` : 'Sandbox · local scene'}</small>
           </div>
           <div className="spacer" />
           {s.geo && (
-            <span className="chip mono" title={s.geo.displayName}>
+            <span className="chip chip-aux mono" title={s.geo.displayName}>
               {/* A derived site has no coordinates. Printing 0.00000°, 0.00000° would assert
                   Null Island as a location rather than admit there is none. */}
               {s.geo.source === 'derived' ? 'local frame · no anchor' : `${s.geo.lat.toFixed(5)}°, ${s.geo.lon.toFixed(5)}°`}
             </span>
           )}
-          {s.geo && <span className="chip mono">bucket · {s.geo.bucket}</span>}
+          {s.geo && <span className="chip chip-aux mono">bucket · {s.geo.bucket}</span>}
           {s.bundle ? <span className="chip">Imported bundle · {s.mesh?.meta.provider}{s.mesh?.meta.provider === 'fixture' ? ' (synthetic)' : ''}</span> : s.example ? <span className="chip">Cached real example · Meshy</span> : <ApiChip api={s.api} />}
           <button className="btn sm ghost" onClick={s.reset} title="Start a new project">
             <RotateCcw size={14} /> New
@@ -55,9 +62,8 @@ export default function App() {
         </header>
 
         <aside className="rail">
-          <div className="rail-head">Pipeline</div>
+          <div className="rail-head">Sheet index</div>
           <ol className="steps">
-            <div className="spine" />
             {STAGES.map((st, i) => (
               <li key={st.id}>
                 <button
@@ -65,7 +71,7 @@ export default function App() {
                   disabled={!open[st.id]}
                   onClick={() => s.go(st.id)}
                 >
-                  <span className="step-node">{done[st.id] && s.stage !== st.id ? <Check size={15} /> : `0${i + 1}`}</span>
+                  <span className="step-node">{done[st.id] && s.stage !== st.id ? <Check size={14} /> : i + 1}</span>
                   <span>
                     <div className="step-title">{st.title}</div>
                     <div className="step-sub">{st.sub}</div>
@@ -93,12 +99,13 @@ export default function App() {
 
         <main className={`main ${s.stage === 'explore' || s.stage === 'sandbox' ? 'fullbleed' : ''}`}>
           <AnimatePresence mode="wait">
+            {/* Operate mode: a sheet change, not a page-load sequence. 180 ms, no blur. */}
             <motion.div
               key={s.stage}
-              initial={{ opacity: 0, y: 14, filter: 'blur(6px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: -10, filter: 'blur(6px)' }}
-              transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
               style={s.stage === 'explore' || s.stage === 'sandbox' ? { position: 'absolute', inset: 0 } : undefined}
             >
               <View />
@@ -122,10 +129,10 @@ function ApiChip({ api }: { api: ApiState }) {
   else if (api.state === 'down') { tone = 'err'; text = 'Pipeline API unreachable'; title = `No answer from ${base}/v1/health` }
   else if (api.live) { tone = 'live'; text = `Pipeline API connected · ${api.provider}` }
   else { tone = 'warn'; text = `Pipeline API connected · ${api.provider} (synthetic)`; title = `${base} — the ${api.provider} provider returns placeholders, not AI generation` }
-  const color = { live: 'var(--ok)', warn: 'var(--warn)', err: 'var(--err)', idle: 'var(--text-3)' }[tone]
+  const color = { live: 'var(--ok)', warn: 'var(--warn)', err: 'var(--err)', idle: 'var(--ink-3)' }[tone]
   return (
     <button className="chip" title={title} disabled={api.state === 'off'} onClick={() => void probeHealth()} style={{ cursor: api.state === 'off' ? 'default' : 'pointer' }}>
-      <span className={`dot ${tone === 'live' ? 'live' : ''}`} style={{ background: color, boxShadow: tone === 'idle' ? 'none' : `0 0 10px ${color}` }} />
+      <span className="dot" style={{ background: color }} />
       {text}
     </button>
   )

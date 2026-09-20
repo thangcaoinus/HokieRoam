@@ -13,7 +13,12 @@ prompt → AI image-to-image redesign → image-to-3D mesh → an automatically 
 that mesh onto the authoritative GIS footprint → inspectable 4×4 matrix, exported GLB + placement manifest
 → third-person walkable scene.
 
-Document authority, in order (re-read all root `.md` files 2026-09-19):
+Document authority, in order (re-read all root `.md` files 2026-09-19; design docs added 2026-09-20):
+- `DESIGN.md` — **the visual system as built** (survey-sheet world: tokens, type, structure, motion,
+  the accessibility rule, and the two compositing traps). Read before touching `web/src/styles.css`
+  or any colour in a component.
+- `PRODUCT.md` — durable product truth: audience, the judging scene, and the constraints that bind
+  the interface (honesty labels, offline, bad numbers stay visible).
 - `mvp-next-steps.md` — **active scope**: what "done" now means (one real building end to end),
   the four remaining slices and the deferred-work gates. It supersedes the 16-hour countdown.
 - `progress-report.md` — **what is actually built and what was checked**, slice by slice, with the
@@ -88,7 +93,7 @@ authoritative path for API assets.
 
 | Area | State |
 | --- | --- |
-| `web/` | Complete 5-stage UI plus **four** no-backend entry points: **Import your own model** (`.glb`/`.obj`, no address — the derived-site path, see *Free import* below), **Load completed real example** (`/?example=burruss`, static artifacts in `web/public/examples/burruss/`; `/?example=dds` still serves the rejection example), **Open saved ZIP** (re-opens an export into Explore, hash-checked, retained byte-for-byte for re-export), and the labelled local simulation when `VITE_API_BASE` is unset. `npm run build` passes — observed 2026-09-19; the >500 kB main-chunk warning is known and accepted. |
+| `web/` | Complete 5-stage UI plus **four** no-backend entry points: **Import your own model** (`.glb`/`.obj`, no address — the derived-site path, see *Free import* below), **Load completed real example** (`/?example=burruss`, static artifacts in `web/public/examples/burruss/`; `/?example=dds` still serves the rejection example), **Open saved ZIP** (re-opens an export into Explore, hash-checked, retained byte-for-byte for re-export), and the labelled local simulation when `VITE_API_BASE` is unset. **Redesigned 2026-09-20 into the survey-sheet world** — light paper ground, ink hairlines, one vermilion, no glass/glow/gradient; see `DESIGN.md`. **Fonts are self-hosted** in `web/public/fonts/` (Archivo + Spline Sans Mono, variable woff2, 212 kB); the Google Fonts CDN link is gone because the demo must render with the network off — verified with every off-origin request aborted. `npm run build` passes — observed 2026-09-20; the >500 kB main-chunk warning is known and accepted. |
 | `server/` | **Working pipeline service.** `app/main.py` (assembly + lifespan), `routes.py` (all 7 `/v1` handlers), `pipeline.py` (orchestration). Drives a fixture job end to end: 1–4 photos → concepts → GLB → fit → export bundle. **`.venv/bin/python -m pytest` → 76 passed** (`test_fit.py`, `test_fit_generality.py`, `test_meshy.py`, `test_job_options.py`), observed 2026-09-19. **`ruff check app` is CLEAN** — the 3 × E501 from the `target_polycount` plumbing were fixed 2026-09-19. (`ruff check tests` still reports 2 × E501 in `test_job_options.py`; `tests/` is outside the documented gate.) |
 | Integration | **Wired, including the fit.** With `VITE_API_BASE` set, Redesign starts one `pipeline` job via `lib/pipelineJob.ts`, Reconstruct follows the same job and loads its GLB, and a reload re-attaches from localStorage. `FitStage.tsx` is now a dispatcher — `serverMesh ? <ServerFitStage/> : <PreviewFitStage/>` (`FitStage.tsx:68`) — so a server mesh goes through `requestFit` and the server's `PlacementManifest`, and the browser `solveFit` only runs for simulation and manual imports. The same matrix drives Fit, Explore, export and refresh; changing mesh or footprint invalidates a stale placement. **The P3 gap recorded in older notes is closed.** |
 | Assets | `samples/` (P4): DDS building photo, OSM way 1174211880 footprint, and a **fixture-generated** concept/model/manifest — labelled synthetic. **Real paid Meshy generations have now run** (2026-09-19): `samples/burruss-medieval-4view/` is the best asset — 4 photos → 4 `image-to-image` calls → **one** `multi-image-to-3d` call, 59k faces with a real footprint and depth (job `41db2b5c…`); `samples/burruss-medieval/` is the same prompt from 1 view (job `97b27cfe…`), kept as the single-view-is-a-flat-facade comparison; `samples/burruss-green-scape/` is a 4-view run that **stalled at `redesign_3`** — resumable by request key, never resubmit. Twelve submissions are recorded in `server/.data/jobs.sqlite3`; the ledger never resets, and `PIPELINE_MAX_SUBMISSIONS` in `server/.env` was raised 6 → **100** on 2026-09-19 because 12 ≥ 6 was failing every new paid job at reserve time (`server/.env.example` still ships the conservative 12). Note a 4-view job costs **5** slots: one `image-to-image` per view plus one `multi-image-to-3d`. |
@@ -158,7 +163,11 @@ node scripts/check-polycount.mjs   # target_polycount UI → request identity, w
 node scripts/check-ingest-live.mjs # NETWORK: real Nominatim + Overpass → real footprint → photo → Redesign
 node scripts/check-manual-placement.mjs # drag-to-place changes live IoU, stays labelled manual, resets exactly
 node scripts/check-free-import.mjs # free import: no address, no API, no GIS, no IoU and no verdict on screen
+node scripts/check-sandbox.mjs     # FAILS at walk/collision (see below); needs a DEV server (vite, not preview)
 ```
+
+`check-sandbox.mjs` is the one check that needs `npx vite --port 5175`, not `vite preview`: it reaches
+into `/src/lib/sandbox.ts` and `/node_modules/.vite/deps/*` by dev-server URL.
 
 `check-derive-site.ts` is not a browser check — it is a headless geometry check for
 `lib/deriveSite`, run through esbuild (already a vite dependency), and it exists because the
@@ -431,6 +440,20 @@ volume collides now. `spawnPoint` uses the same set.
    neighbour parcels) and a reset-camera action. A raw-model toggle inspects the asset without the
    placement transform. Walk mode is exterior only — it does not claim reconstructed interiors.
 
+**Sandbox — multi-model staging, merged 2026-09-20.** A sixth `StageId`, reached from the
+**Sandbox · multiple models** button *below* the numbered sheet list in the rail (it is an aside,
+not sheet 6 — `unlocked().sandbox` is always true, `completed().sandbox` always false, and the
+topbar prints `Sandbox · local scene` instead of a sheet number). `stages/SandboxStage.tsx` +
+`lib/sandbox.ts` hold a **separate zustand store** (`useSandbox`) of `{asset, x, z, yaw, scale}`
+models: import many `.glb`/`.obj` at once, arrange them with a TransformControls gizmo or the
+numeric inspector, **Frame all**, then **Walk scene** — which reuses `ExploreStage`'s exported
+`WalkStage` via the `sandbox?: WalkModel[]` prop, so one walk implementation serves both paths.
+The scene survives navigation between sheets but not a refresh. It is **local and unscored**: no
+address, no anchor, no IoU, no verdict — the same honesty rule as the derived-site path, and
+size for unit-normalised imports is a **labelled estimate** (the fitted building's height, or 20 m),
+never a measurement. `main.tsx` dropped `React.StrictMode` for it: R3F 8 schedules canvas teardown
+500 ms after unmount, and StrictMode's effect replay killed a freshly mounted walkthrough's frame loop.
+
 The header chip reads **"Local AI simulation"** when `VITE_API_BASE` is unset; otherwise it probes
 `GET /v1/health` and reads `Pipeline API connected · meshy`, `· fixture (synthetic)`, `unreachable` or
 `checking…`. Keep that honesty signal anywhere simulated output can reach a screen.
@@ -593,6 +616,22 @@ Also open in the tree: `ruff check app` is clean, but `ruff check tests` still r
 `test_job_options.py`. `web/README.md` / `samples/README.md` still describe the DDS-only example set and
 have **not** been updated for the Burruss switch — do that when touching either area.
 
+`.agents/`, `.codex/` and a root `AGENTS.md` are **now tracked** — the `update UI` commit committed
+them along with `.claude/skills/impeccable`. They are harness mirrors, not repo tooling, and `AGENTS.md`
+is a copy of `CLAUDE.md` that goes stale the moment this file changes. Nothing regenerates it, so either
+re-copy it or delete it; do not treat it as a second source of truth.
+
+**`web/scripts/check-sandbox.mjs` does not pass yet.** Its walk step reached `Collision · first.obj`
+never appearing: holding `w` walks the player *away* from the models (spawn 13.5, 14.7 → 118.8, 132.2)
+instead of into them. Reproduced identically on the pre-merge `sandbox mode` commit in a throwaway
+worktree, so it is a bug in the sandbox walk spawn/heading, **not** merge damage. Everything before it
+passes — multi-import, the 20 m estimate, independent transforms, a real gizmo drag, the 2-polygon
+minimap, pointer lock. One real fix landed in the script itself: an **`async` `waitForFunction`
+predicate returns a promise, the in-page poller only tests it for truthiness, and the wait therefore
+resolves on the first tick regardless of what the predicate decides**. The R3F roots are now imported
+once up front and the predicate is synchronous. `check-placement.mjs` has the same latent bug in three
+places (lines 41, 65, 95) and has not been fixed.
+
 ## Conventions
 
 - **Python**: ruff `E,F,I`, line length 100. Every public contract is a pydantic model with `extra="forbid"`.
@@ -601,6 +640,16 @@ have **not** been updated for the Burruss switch — do that when touching eithe
   task is called done.
 - **Comments explain the why** — frame conventions, why a sign flips, why a retry is forbidden. Match the
   density already in `fit.ts` and `fit.py`; these files are the reference style.
+- **Frontend colour comes from tokens**, defined once in `web/src/styles.css:root` and mirrored for the
+  3D/plan views in `web/src/lib/sceneTheme.ts`. Do not write a hex into a component. Two traps are
+  documented in `DESIGN.md` and both shipped as visible bugs before they were caught: a translucent tint
+  on a cell inside a 1px-gap ruled grid composites over the **rule** colour, not the cell's; and a label
+  colour checked against `--paper` can still fail AA on the darker `--rail`. Check the darkest ground the
+  text actually lands on.
+- **Vermilion means the authoritative GIS footprint.** It is the single accent, also used for the primary
+  action and the current sheet, and nothing else. A legend must be *drawn* (a swatch), never a colour
+  named in prose — "Orange: footprint · green: mesh hull" survived a palette change as a false statement
+  on screen.
 - **Keep the uncertainty labels honest.** `heading: "ambiguous"`, `height: "inferred"`,
   `ground_mode: "flat-assumed"`, `proxy: "projected-convex-hull"`, `world_registration: "not-integrated"`
   are typed literals in `PlacementManifest`. They are claims about what was and was not verified — widen
