@@ -1,1 +1,1 @@
-"""Groundtruth backend. The versioned HTTP contract lives in schemas.py."""
+"""HokieRoam backend. The versioned HTTP contract lives in schemas.py."""

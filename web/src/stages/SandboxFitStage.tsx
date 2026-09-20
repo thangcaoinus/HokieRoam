@@ -85,7 +85,7 @@ export default function SandboxFitStage() {
 
   const transformJSON = () => ({
     version: 1,
-    generator: 'groundtruth',
+    generator: 'hokieroam',
     // Named differently from the scored path's `anchor` on purpose: nothing here is anchored.
     site: {
       kind: 'derived-from-mesh',
@@ -243,7 +243,7 @@ export default function SandboxFitStage() {
               <button className="btn sm" onClick={async () => {
                 s.log('export › writing grounded GLB…')
                 const blob = await exportGLB(mesh, new THREE.Matrix4().fromArray(M))
-                download(blob, 'groundtruth-derived-site.glb')
+                download(blob, 'hokieroam-derived-site.glb')
                 s.log(`export › GLB ${(blob.size / 1024).toFixed(0)} KB`, 'ok')
               }}><Package size={13} /> GLB</button>
             </span>

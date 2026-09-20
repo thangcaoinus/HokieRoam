@@ -39,11 +39,21 @@ export default function App() {
         <header className="topbar">
           <div className="brand">
             <div className="brand-mark">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="1.3" strokeLinejoin="round">
-                <path d="M1.2 9.4h9.6M3.6 9.4V4.6L6 3l2.4 1.6v4.8" />
+              {/* HokieBird head in profile. Drawn as a filled silhouette rather than the outline
+                  the old house mark used, because a 1.3px stroke closes up and turns to mush at
+                  13px; solid masses survive. Three shapes only — skull, beak, punched eye — and
+                  the eye is punched in the tile colour so the mark stays a single flat cut. */}
+              <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
+                <circle cx="6.8" cy="8" r="4.5" fill="#fff" />
+                {/* The beak's base corners sit well inside the skull (x=8.6 against a circle
+                    spanning y 3.9-12.1 there), so the two shapes union without a seam. An
+                    earlier version started the wedge at x=10.1 and its lower corner fell
+                    outside the arc, which showed as a nick in the silhouette. */}
+                <path d="M8.6 6.2 15.2 8.6 8.6 9.8z" fill="#fff" />
+                <circle cx="5.2" cy="6.4" r="1.2" fill="var(--vermilion)" />
               </svg>
             </div>
-            <div>GROUNDTRUTH</div>
+            <div>HOKIEROAM</div>
             <small>{sheet ? `Sheet ${sheetIndex + 1} of ${STAGES.length} · ${sheet.title}` : 'Sandbox · local scene'}</small>
           </div>
           <div className="spacer" />

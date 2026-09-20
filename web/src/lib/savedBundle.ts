@@ -36,7 +36,7 @@ function placement(value: any): PlacementManifest {
       !Array.isArray(p.warnings) || !p.warnings.every((w: unknown) => typeof w === 'string') ||
       !c.metrics || !['iou', 'coverage', 'spill_fraction', 'spill_area_m2', 'neighbor_overlap_m2'].every(k => finite(c.metrics[k])) ||
       typeof c.metrics.contained !== 'boolean' || !vector(p.source_dimensions_m, 3) || !vector(p.fitted_dimensions_m, 3)) {
-    fail('Invalid placement.json: expected a version 1 Groundtruth placement with finite geometry and metrics.')
+    fail('Invalid placement.json: expected a version 1 HokieRoam placement with finite geometry and metrics.')
   }
   if (!finite(f.origin_latitude) || Math.abs(f.origin_latitude) > 90 ||
       !finite(f.origin_longitude) || Math.abs(f.origin_longitude) > 180 ||
@@ -112,7 +112,7 @@ export async function openSavedBundle(file: File, persist = true) {
           (entry.name.endsWith('.json') && entry.originalSize > 1024 * 1024)) fail('Bundle contents exceed the supported size limit.')
       return true
     } })
-  } catch (e) { fail(`Cannot read this Groundtruth ZIP: ${(e as Error).message}`) }
+  } catch (e) { fail(`Cannot read this HokieRoam ZIP: ${(e as Error).message}`) }
   const parse = (name: string) => {
     if (!files[name]) fail(`Bundle is missing ${name}. Export after fitting the model.`)
     try { return JSON.parse(decoder.decode(files[name])) } catch { return fail(`Invalid ${name}.`) }

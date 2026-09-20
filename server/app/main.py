@@ -1,4 +1,4 @@
-"""HTTP surface for the Groundtruth pipeline — application assembly.
+"""HTTP surface for the HokieRoam pipeline — application assembly.
 
 The contract is frozen in ``schemas.py`` and mirrored in ``web/src/lib/api.ts``; the handlers live
 in ``routes.py`` and the orchestration in ``pipeline.py``. This module only wires them together.
@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
         await pipeline.shutdown()
 
 
-app = FastAPI(title="Groundtruth pipeline", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="HokieRoam pipeline", version="1.0.0", lifespan=lifespan)
 
 # Without CORS the browser cannot reach this API at all from the Vite dev server.
 app.add_middleware(

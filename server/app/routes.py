@@ -198,5 +198,5 @@ async def export_job(job_id: str, store: StoreDep) -> Response:
     return Response(
         content=data,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="groundtruth-{job_id}.zip"'},
+        headers={"Content-Disposition": f'attachment; filename="hokieroam-{job_id}.zip"'},
     )

@@ -43,7 +43,7 @@ function transformJSON(fit: FitResult) {
   const rowMajor = new THREE.Matrix4().fromArray(fit.matrices.M).transpose().toArray()
   return {
     version: 1,
-    generator: 'groundtruth',
+    generator: 'hokieroam',
     anchor: {
       lat: geo!.lat, lon: geo!.lon, geohash: geo!.bucket, source: geo!.source, osm_id: geo!.osmId ?? null,
       frame: 'local tangent plane · x=east, y=up, z=south · meters',
@@ -129,7 +129,7 @@ function PreviewFitStage() {
   const exportGlb = async () => {
     s.log('export › writing map-anchored GLB…')
     const blob = await exportGLB(s.mesh!, new THREE.Matrix4().fromArray(fit!.matrices.M))
-    download(blob, `groundtruth-${s.geo!.bucket}.glb`)
+    download(blob, `hokieroam-${s.geo!.bucket}.glb`)
     s.log(`export › GLB ${(blob.size / 1024).toFixed(0)} KB`, 'ok')
   }
 

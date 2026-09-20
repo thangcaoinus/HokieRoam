@@ -77,11 +77,11 @@ export default function IngestStage() {
         <div className="entry">
           <div className="entry-body">
             <h3>Reopen a saved design</h3>
-            <p>Open a Groundtruth ZIP exported after placement. Your model, photos, prompt and saved placement stay on this device. No generation or geographic lookup.</p>
+            <p>Open a HokieRoam ZIP exported after placement. Your model, photos, prompt and saved placement stay on this device. No generation or geographic lookup.</p>
           </div>
           <button className="btn" disabled={bundleBusy || exampleBusy} onClick={() => bundleRef.current?.click()}>{bundleBusy ? 'Checking…' : 'Open saved ZIP'}</button>
         </div>
-        <input ref={bundleRef} aria-label="Saved Groundtruth ZIP" type="file" accept=".zip,application/zip" hidden onChange={async (e) => {
+        <input ref={bundleRef} aria-label="Saved HokieRoam ZIP" type="file" accept=".zip,application/zip" hidden onChange={async (e) => {
           const file = e.target.files?.[0]; e.target.value = ''
           if (!file) return
           setBundleBusy(true); setError('')

@@ -23,7 +23,7 @@ try {
  page.on('request', r=>{if(r.url().includes('/v1/'))requests.push(r.url())})
  await page.route('**/*', route=>new URL(route.request().url()).origin===new URL(url).origin?route.continue():route.abort())
  await page.goto(url)
- const upload = async buffer=>page.getByLabel('Saved Groundtruth ZIP').setInputFiles({name:'saved-design.zip',mimeType:'application/zip',buffer})
+ const upload = async buffer=>page.getByLabel('Saved HokieRoam ZIP').setInputFiles({name:'saved-design.zip',mimeType:'application/zip',buffer})
  await upload(original)
  await page.getByRole('button',{name:'Walk around',exact:true}).waitFor({timeout:60000})
  await page.getByText('Imported bundle · meshy',{exact:true}).waitFor()

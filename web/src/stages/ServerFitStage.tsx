@@ -44,7 +44,7 @@ export default function ServerFitStage() {
     try {
       if (cached) {
         const a = document.createElement('a')
-        a.href = s.bundle?.url ?? `${EXAMPLE_PATH}/bundle.zip`; a.download = s.bundle?.name ?? `groundtruth-${mesh.meta.exampleId ?? 'example'}.zip`; a.click()
+        a.href = s.bundle?.url ?? `${EXAMPLE_PATH}/bundle.zip`; a.download = s.bundle?.name ?? `hokieroam-${mesh.meta.exampleId ?? 'example'}.zip`; a.click()
         return
       }
       // Another tab may have refitted this job. Never export a different matrix silently.
@@ -53,7 +53,7 @@ export default function ServerFitStage() {
       const current = useStore.getState()
       if (current.placement !== p || current.mesh !== mesh) return
       const a = document.createElement('a')
-      a.href = exportUrl(job.job_id); a.download = `groundtruth-${job.job_id}.zip`; a.click()
+      a.href = exportUrl(job.job_id); a.download = `hokieroam-${job.job_id}.zip`; a.click()
     } catch (e) { if (mounted.current) setError((e as Error).message) }
   }
 
