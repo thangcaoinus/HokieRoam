@@ -7,9 +7,14 @@ const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright')
 const url = process.env.CHECK_WEB || 'http://localhost:5175'
 const out = '/tmp/groundtruth-bundle-check'
 await mkdir(out, {recursive:true})
-const original = await readFile(new URL('../public/examples/dds/bundle.zip', import.meta.url))
+const id = process.env.CHECK_EXAMPLE || 'burruss'
+const original = await readFile(new URL(`../public/examples/${id}/bundle.zip`, import.meta.url))
 const files = unzipSync(original)
 const placement = JSON.parse(strFromU8(files['placement.json']))
+const generation = JSON.parse(strFromU8(files['generation.json']))
+// Follow the bundle rather than memorised strings: the source photo may be .jpg or .png, and a
+// four-view example has several.
+const sourceName = Object.keys(files).find(n => /^source\.(png|jpg)$/.test(n))
 const b = await chromium.launch({headless:true,args:['--no-sandbox','--enable-unsafe-swiftshader']})
 try {
  const page = await b.newPage({viewport:{width:1440,height:1050}})
@@ -40,7 +45,7 @@ try {
  await page.waitForTimeout(2000)
  await page.screenshot({path:`${out}/imported-explore.png`,fullPage:true})
  await page.getByRole('button',{name:/Redesign/}).click()
- await page.getByText('Modern Hokie Stone academic building with large glass curtain walls, preserve roofline and massing.',{exact:true}).waitFor()
+ await page.getByText(generation.settings.prompt,{exact:true}).waitFor()
  assert.equal(await page.getByRole('button',{name:'Generate concept',exact:true}).count(),0)
  await page.getByRole('button',{name:'New',exact:true}).click()
  await page.reload()
@@ -49,7 +54,7 @@ try {
  // Changed bytes and malformed transforms must not replace the current project.
  for(const [patch, message] of [
    [{'model.glb':new Uint8Array([1,2,3])},'Hash mismatch'],
-   [{'source.png':new Uint8Array([1,2,3])},'Hash mismatch'],
+   [{[sourceName]:new Uint8Array([1,2,3])},'Hash mismatch'],
    [{'placement.json':strToU8(JSON.stringify({...placement,selected:{...placement.selected,matrix_column_major:[0,1]}}))},'Invalid placement.json'],
    [{'placement.json':strToU8(JSON.stringify({...placement,asset_sha256:'0'.repeat(64)}))},'does not match'],
  ]) {

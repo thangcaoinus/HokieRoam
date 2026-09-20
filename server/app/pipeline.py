@@ -153,7 +153,8 @@ class Pipeline:
                 "prompt": prompt,
                 "strength": strength,
                 "views": len(images),
-                "target_polycount": target_polycount if target_polycount is not None else self.settings.target_polycount,
+                "target_polycount": (target_polycount if target_polycount is not None
+                                     else self.settings.target_polycount),
                 "provider": self.provider.name,
                 "image_model": self.settings.image_model,
                 "mesh_model": self.settings.mesh_model,
@@ -281,7 +282,8 @@ class Pipeline:
         try:
             task_id = await self.provider.submit(
                 stage, images, job["settings"]["prompt"], job["settings"]["strength"],
-                target_polycount=job["settings"].get("target_polycount", self.settings.target_polycount))
+                target_polycount=job["settings"].get(
+                    "target_polycount", self.settings.target_polycount))
         except SubmissionUnknown as exc:
             # Checked before ProviderError on purpose: SubmissionUnknown is a subclass.
             return self.store.update(job_id, status="submission-unknown", error=str(exc))

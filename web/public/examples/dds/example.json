@@ -6,6 +6,10 @@
   "presetId": "campus",
   "provider": "meshy",
   "description": "Completed real generation, locally simplified for browser viewing. Placement needs review.",
+  "photos": [
+    "source.png"
+  ],
+  "concept": "concept.png",
   "optimization": {
     "method": "gltf-transform simplify / meshoptimizer",
     "ratio": 0.034363277111193836,
@@ -281,12 +285,16 @@
       "up_axis": "Y",
       "unit_scale": 1.0,
       "min_iou": 0.85,
-      "numerical_tolerance_m": 1e-06
+      "numerical_tolerance_m": 1e-06,
+      "max_spill_fraction": 0.15,
+      "measured_height_m": null,
+      "max_height_correction": 1.25
     },
     "selected": {
       "index": 0,
       "yaw_radians": 0.7690915815257049,
       "scale": 33.38937064255552,
+      "scale_y": null,
       "matrix_column_major": [
         23.991690383133406,
         0.0,
@@ -436,6 +444,7 @@
         "index": 0,
         "yaw_radians": 0.7690915815257049,
         "scale": 33.38937064255552,
+        "scale_y": null,
         "matrix_column_major": [
           23.991690383133406,
           0.0,
@@ -584,6 +593,7 @@
         "index": 1,
         "yaw_radians": 2.3398879083206015,
         "scale": 33.358564710836404,
+        "scale_y": null,
         "matrix_column_major": [
           -23.200307594378785,
           0.0,
@@ -732,6 +742,7 @@
         "index": 2,
         "yaw_radians": 3.910684235115498,
         "scale": 33.38937064255552,
+        "scale_y": null,
         "matrix_column_major": [
           -23.99169038313341,
           0.0,
@@ -880,6 +891,7 @@
         "index": 3,
         "yaw_radians": 5.481480561910394,
         "scale": 33.35856471083642,
+        "scale_y": null,
         "matrix_column_major": [
           23.20030759437878,
           0.0,
@@ -1043,7 +1055,8 @@
     "warnings": [
       "Projected hull is a conservative proxy, not a measured wall footprint.",
       "Facade heading is unverified; height is inferred and terrain is flat-assumed.",
-      "OBB fit fails actual containment or overlaps a supplied neighbor."
+      "Best placement spills 36% of its plan area outside the footprint (limit 15%), or overlaps a neighbor.",
+      "Placement is not strictly contained: 1438.82 m2 of plan area falls outside the footprint."
     ],
     "world_registration": "not-integrated"
   }

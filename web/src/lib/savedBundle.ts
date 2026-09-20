@@ -23,7 +23,15 @@ function placement(value: any): PlacementManifest {
       !polygon(r.footprint) || !polygon(c.fitted_proxy) ||
       !vector(c.matrix_column_major, 16) || !finite(c.scale) || c.scale <= 0 || !finite(c.yaw_radians) ||
       !['accepted', 'review', 'rejected'].includes(p.plan_fit) ||
-      p.heading !== 'ambiguous' || p.height !== 'inferred' ||
+      p.heading !== 'ambiguous' || !['measured', 'source-record', 'inferred'].includes(p.height) ||
+      // scale_y is absent on manifests written before measured height existed, and null means
+      // "same as scale". A present value must still be a usable positive number.
+      (c.scale_y !== undefined && c.scale_y !== null && (!finite(c.scale_y) || c.scale_y <= 0)) ||
+      // A non-inferred height claim must be backed by an applied vertical scale. The converse no
+      // longer holds: a recorded height may be present but deliberately NOT applied when it
+      // disagrees with the proportion-preserving fit by more than max_height_correction.
+      ((p.height !== 'inferred') !== (c.scale_y != null)) ||
+      (r.measured_height_m != null && (!finite(r.measured_height_m) || r.measured_height_m <= 0)) ||
       !['performed', 'not-provided'].includes(p.neighbor_check) ||
       !Array.isArray(p.warnings) || !p.warnings.every((w: unknown) => typeof w === 'string') ||
       !c.metrics || !['iou', 'coverage', 'spill_fraction', 'spill_area_m2', 'neighbor_overlap_m2'].every(k => finite(c.metrics[k])) ||
@@ -141,6 +149,9 @@ export async function openSavedBundle(file: File, persist = true) {
       source: p.provenance.source === 'osm' ? 'osm' : 'demo',
       osmId: p.provenance.source === 'osm' ? p.provenance.feature_id : undefined,
       identityConfirmed: p.provenance.identity_confirmed, bucket: geohash(lat, lon), areaM2: polygonArea(footprint),
+      // Restored from the manifest, not re-looked-up: placementMatches compares the whole request,
+      // so a dropped height would reject an otherwise valid bundle.
+      heightM: p.request.measured_height_m ?? undefined,
     }
     // No second fit, inferred corrections, or silently discarded request fields.
     if (!placementMatches(p, geo, mesh)) fail('This placement uses inputs the current viewer cannot restore exactly.')

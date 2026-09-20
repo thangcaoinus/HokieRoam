@@ -121,6 +121,15 @@ export interface FitRequest {
   unit_scale: number
   min_iou: number
   numerical_tolerance_m: number
+  /** Plan area the best placement may spill outside the footprint before it is unusable.
+   *  A real roof eave always spills, so exact containment is reported, never enforced. */
+  max_spill_fraction: number
+  /** An independently recorded building height (e.g. OSM `height`). null means the vertical
+   *  scale follows the plan fit, which is proportion-preserving but inherits its error. */
+  measured_height_m: number | null
+  /** How far vertical scale may depart from the uniform plan scale before the recorded height is
+   *  reported rather than applied. Deck p.58 prefers proportion-preserving uniform scaling. */
+  max_height_correction: number
 }
 
 export interface FitMetrics {
@@ -136,6 +145,8 @@ export interface FitCandidate {
   index: number
   yaw_radians: number
   scale: number
+  /** null means vertical scale equals `scale` (uniform, proportion-preserving). */
+  scale_y: number | null
   /** 4x4, COLUMN-major — feed straight into THREE.Matrix4.fromArray, which expects column-major. */
   matrix_column_major: number[]
   fitted_proxy: Polygon2D
@@ -155,7 +166,7 @@ export interface PlacementManifest {
   // The next four are claims about what was and was not verified. Surface them on screen; they are
   // the honest edges a judge will probe, not weaknesses to hide.
   heading: 'ambiguous'
-  height: 'inferred'
+  height: 'measured' | 'source-record' | 'inferred'
   proxy: 'projected-convex-hull'
   neighbor_check: NeighborCheck
   source_dimensions_m: [number, number, number]
@@ -231,6 +242,9 @@ export interface FitRequestInit {
   unit_scale?: number
   min_iou?: number
   numerical_tolerance_m?: number
+  max_spill_fraction?: number
+  measured_height_m?: number | null
+  max_height_correction?: number
 }
 
 // ---------------------------------------------------------------------------

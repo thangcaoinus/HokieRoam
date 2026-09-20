@@ -123,14 +123,17 @@ function Player({ state, keys, colliders }: { state: React.MutableRefObject<Play
       body.current.rotation.y = st.heading
     }
 
-    // over-the-shoulder chase camera
-    const dist = 7.5, h = 2.4 + st.camPitch * 6
+    // Over-the-shoulder chase camera. camPitch drives BOTH the camera height and how far up the
+    // look target rides, because a chase camera that always looks at the player can never show the
+    // top of a 20-50 m building. Negative pitch (mouse up) drops the camera and lifts the gaze.
+    const lookLift = Math.max(0, -st.camPitch) * 42
+    const dist = 7.5, h = Math.max(1.1, 2.4 + st.camPitch * 6)
     const cy = Math.cos(st.camYaw), sy = Math.sin(st.camYaw)
     const shoulder = 0.9
     const desired = new THREE.Vector3(st.pos.x + sy * dist + cy * shoulder, st.pos.y + h, st.pos.z + cy * dist - sy * shoulder)
     const a = 1 - Math.exp(-dt * 7)
     camera.position.lerp(desired, a)
-    const tgt = new THREE.Vector3(st.pos.x + cy * shoulder * 0.6, st.pos.y + 1.6, st.pos.z - sy * shoulder * 0.6)
+    const tgt = new THREE.Vector3(st.pos.x + cy * shoulder * 0.6, st.pos.y + 1.6 + lookLift, st.pos.z - sy * shoulder * 0.6)
     look.current.lerp(tgt, 1 - Math.exp(-dt * 10))
     camera.lookAt(look.current)
 
@@ -166,11 +169,12 @@ function World({ fit, asset, footprint, neighbors, style, state, keys, show }: {
   state: React.MutableRefObject<PlayerState>; keys: React.MutableRefObject<Keys>; show: { footprint: boolean; bbox: boolean }
 }) {
   const tex = useMemo(() => groundTexture(style), [style])
+  // The orange footprint is a DRAWN REFERENCE, not geometry: blocking it walled the player out of
+  // empty ground wherever the building did not fill its own footprint. Only real volume collides.
   const colliders = useMemo(() => [
-    { poly: footprint, name: 'footprint boundary' },
-    { poly: fit.chosen.poly, name: 'building bounding hull' },
-    ...neighbors.map((n) => ({ poly: n, name: 'adjacent parcel' })),
-  ], [footprint, fit, neighbors])
+    { poly: fit.chosen.poly, name: 'building' },
+    ...neighbors.map((n) => ({ poly: n, name: 'adjacent building' })),
+  ], [fit, neighbors])
   const night = style === 'noir'
   const fogColor = night ? '#0b0816' : style === 'scorched' ? '#c79a6f' : '#b9c7cf'
   return (
@@ -272,10 +276,10 @@ function WalkStage() {
   const [focused, setFocused] = useState(false)
   const [show, setShow] = useState({ footprint: true, bbox: false })
   const wrap = useRef<HTMLDivElement>(null)
-  const fit = useMemo(() => s.placement ? placementScene(s.placement) : s.fit!, [s.placement, s.fit])
+  const fit = useMemo(() => s.placement ? placementScene(s.placement, s.adjust) : s.fit!, [s.placement, s.adjust, s.fit])
   const geo = s.geo!, mesh = s.mesh!
   const state = useRef<PlayerState>({
-    pos: spawnPoint(fit, [geo.footprint, fit.chosen.poly, ...geo.neighbors]),
+    pos: spawnPoint(fit, [fit.chosen.poly, ...geo.neighbors]),
     heading: 0, camYaw: 0, camPitch: 0.15, vy: 0, speed: 0, blocked: null,
   })
   // face the building on spawn
@@ -298,7 +302,8 @@ function WalkStage() {
     const move = (e: MouseEvent) => {
       if (document.pointerLockElement !== wrap.current) return
       state.current.camYaw -= e.movementX * 0.0035
-      state.current.camPitch = Math.max(-0.2, Math.min(0.9, state.current.camPitch + e.movementY * 0.0025))
+      // Was clamped at -0.2, which capped the gaze just above the horizon.
+      state.current.camPitch = Math.max(-0.75, Math.min(1.0, state.current.camPitch + e.movementY * 0.0025))
     }
     const lock = () => { setFocused(document.pointerLockElement === wrap.current); blur() }
     window.addEventListener('keydown', down)
@@ -345,7 +350,7 @@ function WalkStage() {
         <label className="toggle"><input type="checkbox" checked={show.bbox} onChange={(e) => setShow({ ...show, bbox: e.target.checked })} />Mesh hull</label>
         <button className="btn sm" onClick={() => {
           const st = state.current
-          st.pos.copy(spawnPoint(fit, [geo.footprint, fit.chosen.poly, ...geo.neighbors]))
+          st.pos.copy(spawnPoint(fit, [fit.chosen.poly, ...geo.neighbors]))
           st.camYaw = Math.atan2(st.pos.x - fit.footprintOBB.center.x, st.pos.z - fit.footprintOBB.center.z)
           st.camPitch = 0.15; st.vy = 0; keys.current = {}; setPressed({})
         }}>Reset position</button>
@@ -381,7 +386,7 @@ export default function ExploreStage() {
         <button className="btn sm" onClick={() => { document.exitPointerLock(); setCamera((n) => n + 1) }}>Reset camera</button>
         <button className="btn sm" onClick={() => { document.exitPointerLock(); s.go('fit') }}>Inspect / export</button>
       </div>
-      <div className="dimmer" style={{ marginTop: 6 }}>Heading unverified · height inferred{s.placement.plan_fit === 'rejected' ? ' · Inspection only: this placement fails the fit constraints.' : ''}</div>
+      <div className="dimmer" style={{ marginTop: 6 }}>Heading unverified · {s.placement.height === 'inferred' ? 'height inferred from the mesh' : `height ${s.placement.request.measured_height_m?.toFixed(1)} m from the ${s.placement.provenance.source.toUpperCase()} record`}{s.placement.plan_fit === 'rejected' ? ' · Inspection only: this placement fails the fit constraints.' : ''}</div>
       <details style={{ marginTop: 8 }}><summary>Source photo and prompt</summary>
         <p>{s.prompt}</p>{s.photos[0] && <img src={s.photos[0]} alt="Original building" style={{ width: 180, borderRadius: 8 }} />}
       </details>

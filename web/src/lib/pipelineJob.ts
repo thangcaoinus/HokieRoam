@@ -29,7 +29,7 @@ import {
 } from './api'
 import { geohash, polygonArea, unproject, type GeoResult } from './geo'
 import { placementMatches } from './placement'
-import { loadCompletedExample } from './cachedExample'
+import { loadCompletedExample, EXAMPLE_IDS } from './cachedExample'
 import { loadMeshUrl } from './reconstruct'
 import { BUNDLE_KEY, EXAMPLE_KEY, SESSION_KEY, useStore, type StageId } from '../store'
 
@@ -304,9 +304,12 @@ export async function resumeSession() {
   }
   let cached: string | null = null
   try { cached = localStorage.getItem(EXAMPLE_KEY) } catch { /* ignore */ }
-  if (query.get('example') === 'dds' || (cached === 'dds' && !query.has('job'))) {
+  const asked = EXAMPLE_IDS.find((id) => id === query.get('example'))
+  const remembered = EXAMPLE_IDS.find((id) => id === cached)
+  const example = asked ?? (query.has('job') ? undefined : remembered)
+  if (example) {
     try {
-      await loadCompletedExample()
+      await loadCompletedExample(example)
       const url = new URL(window.location.href)
       url.searchParams.delete('example')
       history.replaceState(null, '', url)

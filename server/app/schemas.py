@@ -37,6 +37,24 @@ class FitRequest(Contract):
     unit_scale: float = Field(default=1, gt=0, le=1e6)
     min_iou: float = Field(default=0.85, ge=0, le=1)
     numerical_tolerance_m: float = Field(default=1e-6, gt=0, le=0.01)
+    # Plan overhang the best placement may have outside the footprint before it stops being
+    # usable. A real roof eave always spills, so exact containment cannot be the gate.
+    # The default is tied to min_iou rather than picked to taste: with a convex proxy the
+    # achievable IoU is capped at roughly 1 - spill_fraction, so allowing 15% spill is the
+    # same statement as requiring 0.85 IoU. Revisit it when the proxy stops being convex.
+    # A tunable product policy (feasibility-plan.md 5.6), not a measurement.
+    max_spill_fraction: float = Field(default=0.15, ge=0, le=1)
+    # An independently recorded building height, e.g. OSM's `height` tag. Uniform scale ties
+    # height to the plan fit, which renders a 20.7 m building at 48 m. When a height is supplied
+    # the vertical scale is solved from it instead (feasibility-plan.md 5.4) and the manifest
+    # downgrades `height` from "inferred" to "source-record". It never changes the plan fit.
+    measured_height_m: float | None = Field(default=None, gt=0, le=1000)
+    # How far vertical scale may depart from the proportion-preserving uniform scale before the
+    # record is treated as describing something else. Deck p.58 says to PREFER uniform scaling and
+    # only ALLOW limited non-uniform scaling; feasibility-plan.md 5.4 proposes 1.15-1.25. A record
+    # that disagrees by more than this is reported, never forced: an OSM `height` is often the
+    # eaves of the main block while the mesh includes a tower, and forcing it squashes the model.
+    max_height_correction: float = Field(default=1.25, ge=1, le=4)
 
 
 class ProjectRequest(Contract):
@@ -58,6 +76,10 @@ class FitCandidate(Contract):
     index: int
     yaw_radians: float
     scale: float
+    # Vertical scale. None means it equals `scale` (proportion-preserving uniform fit); a value
+    # means height came from a record rather than the plan fit. Optional so manifests written
+    # before measured height existed still parse.
+    scale_y: float | None = None
     matrix_column_major: list[float] = Field(min_length=16, max_length=16)
     fitted_proxy: Polygon2D
     metrics: FitMetrics
@@ -74,7 +96,7 @@ class PlacementManifest(Contract):
     candidates: list[FitCandidate]
     plan_fit: Literal["accepted", "review", "rejected"]
     heading: Literal["ambiguous"] = "ambiguous"
-    height: Literal["inferred"] = "inferred"
+    height: Literal["measured", "source-record", "inferred"] = "inferred"
     proxy: Literal["projected-convex-hull"] = "projected-convex-hull"
     neighbor_check: Literal["performed", "not-provided"]
     source_dimensions_m: tuple[float, float, float]

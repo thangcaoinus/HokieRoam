@@ -29,6 +29,12 @@ export type ApiState =
 
 export interface LogLine { t: number; msg: string; level: 'info' | 'ok' | 'warn' }
 
+/** Plan-space nudge about the footprint centroid: metres east/south and a yaw in radians. */
+export interface Adjustment { dx: number; dz: number; dyaw: number }
+export const NO_ADJUST: Adjustment = { dx: 0, dz: 0, dyaw: 0 }
+export const isAdjusted = (a: Adjustment | null): a is Adjustment =>
+  !!a && (Math.abs(a.dx) > 1e-6 || Math.abs(a.dz) > 1e-6 || Math.abs(a.dyaw) > 1e-6)
+
 interface State {
   revision: number
   bundle: { name: string; url: string; urls: string[] } | null
@@ -45,6 +51,10 @@ interface State {
   mesh: MeshAsset | null
   fit: FitResult | null
   placement: PlacementManifest | null
+  /** Manual placement correction applied on top of the computed one, in scene metres/radians.
+   *  Never merged into the manifest: the server fit stays the authoritative, exportable result
+   *  and this is an explicitly labelled review overlay (deck p.58, "manual review"). */
+  adjust: Adjustment | null
   example: { id: string; title: string } | null
   /** Latest server snapshot of the Pipeline API job, or null in simulation mode. */
   job: JobView | null
@@ -73,6 +83,7 @@ const initial = {
   mesh: null,
   fit: null,
   placement: null,
+  adjust: null as Adjustment | null,
   example: null,
   job: null as JobView | null,
   jobError: null as string | null,
@@ -119,9 +130,14 @@ useStore.subscribe((s, prev) => {
   if (s.bundle && s.bundle !== prev.bundle) bundleUrls.push(...s.bundle.urls)
   const inputsChanged = s.mesh !== prev.mesh || s.geo !== prev.geo
   const invalid = s.placement && (!s.mesh || !s.geo || !placementMatches(s.placement, s.geo, s.mesh))
-  if (invalid || (inputsChanged && s.fit)) {
+  // A manual correction is expressed relative to one computed placement. If that placement is
+  // replaced or invalidated the correction means nothing, so it is dropped rather than reapplied
+  // to a different transform.
+  const staleAdjust = s.adjust && (invalid || s.placement !== prev.placement)
+  if (invalid || staleAdjust || (inputsChanged && s.fit)) {
     useStore.setState({
       ...(invalid ? { placement: null } : {}),
+      ...(staleAdjust ? { adjust: null } : {}),
       ...(inputsChanged ? { fit: null } : {}),
       ...(s.stage === 'explore' ? { stage: s.geo && s.mesh ? 'fit' : 'ingest' } : {}),
     })

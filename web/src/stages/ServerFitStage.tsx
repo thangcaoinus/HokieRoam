@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { useStore } from '../store'
+import { NO_ADJUST, isAdjusted, useStore } from '../store'
 import { exportUrl, getJob, requestFit } from '../lib/api'
 import { fitRequest, placementMatches } from '../lib/placement'
 import PlacedScene from '../components/PlacedScene'
 import MatrixView from '../components/MatrixView'
+import PlanEditor from '../components/PlanEditor'
 import { EXAMPLE_PATH } from '../lib/cachedExample'
 
 export default function ServerFitStage() {
@@ -12,6 +13,8 @@ export default function ServerFitStage() {
   const [error, setError] = useState('')
   const [raw, setRaw] = useState(false)
   const [camera, setCamera] = useState(0)
+  const [review, setReview] = useState(false)
+  const manual = isAdjusted(s.adjust)
   const mounted = useRef(true)
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
   const p = s.placement
@@ -71,8 +74,13 @@ export default function ServerFitStage() {
     </label>
     {error && <div className="err-text" role="alert">{error}</div>}
     {p ? <>
+      {manual && <div className="flag warn" role="status" data-testid="manual-placement">
+        Manually corrected — moved {Math.hypot(s.adjust!.dx, s.adjust!.dz).toFixed(1)} m and turned{' '}
+        {(s.adjust!.dyaw * 180 / Math.PI).toFixed(1)}° from the computed placement. Explore shows this
+        correction; the export and the verdict below still describe the computed result.
+      </div>}
       <div className={`flag ${p.plan_fit === 'accepted' ? 'ok' : p.plan_fit === 'rejected' ? 'error' : 'warn'}`} role="status" data-testid="placement-status">
-        Placement: {p.plan_fit}. {p.plan_fit === 'rejected' ? 'Outside the fit constraints; explore for inspection, not as an approved placement.' : p.plan_fit === 'review' ? 'Inspect the fit before using this result.' : 'Plan fit passed.'} Heading unverified · height inferred.
+        Placement: {p.plan_fit}. {p.plan_fit === 'rejected' ? 'Outside the fit constraints; explore for inspection, not as an approved placement.' : p.plan_fit === 'review' ? 'Inspect the fit before using this result.' : 'Plan fit passed.'} Heading unverified · {p.height === 'inferred' ? 'height inferred from the mesh' : `height ${p.request.measured_height_m?.toFixed(1)} m from the ${p.provenance.source.toUpperCase()} record`}.
       </div>
       <div className="card" style={{ padding: 6, marginTop: 16 }}>
         <div className="row" style={{ padding: 10 }}>
@@ -80,14 +88,34 @@ export default function ServerFitStage() {
           <button className="btn sm" onClick={() => setCamera((n) => n + 1)}>Reset camera</button>
           <span className="dimmer">{raw ? 'Unchanged source coordinates' : 'Orange: footprint · green: conservative mesh hull'}</span>
         </div>
-        <div className="viewer"><PlacedScene key={camera} asset={mesh} placement={p} raw={raw} /></div>
+        <div className="viewer"><PlacedScene key={camera} asset={mesh} placement={p} raw={raw} adjust={s.adjust} /></div>
       </div>
+      <div className="card card-pad" style={{ marginTop: 18 }}>
+        <div className="row wrap" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <strong>Adjust placement by hand</strong>
+            <div className="dimmer" style={{ fontSize: 12 }}>
+              For when the measured fit is wrong and you can see why. Reviewed, not certified.
+            </div>
+          </div>
+          <div className="row">
+            {manual && <button className="btn sm" onClick={() => { s.set({ adjust: null }); s.log('fit › manual correction cleared; showing the computed placement') }}>Reset to computed</button>}
+            <button className="btn sm" onClick={() => setReview(!review)}>{review ? 'Hide' : 'Adjust'}</button>
+          </div>
+        </div>
+        {review && <div style={{ marginTop: 14 }}>
+          <PlanEditor placement={p} adjust={s.adjust ?? NO_ADJUST}
+            onChange={(a) => s.set({ adjust: a })} />
+        </div>}
+      </div>
+
       <details className="card card-pad" style={{ marginTop: 18 }}>
         <summary>Inspect placement, metrics and transform</summary>
         <div className="stats" style={{ marginTop: 16 }}>
           {([['Footprint IoU', `${(p.selected.metrics.iou * 100).toFixed(1)}%`], ['Coverage', `${(p.selected.metrics.coverage * 100).toFixed(1)}%`], ['Spill', `${p.selected.metrics.spill_area_m2.toFixed(2)} m²`], ['Neighbor overlap', `${p.selected.metrics.neighbor_overlap_m2.toFixed(2)} m²`]]).map(([k, v]) => <div className="stat" key={k}><div className="v">{v}</div><div className="k">{k}</div></div>)}
         </div>
-        <p>Uniform scale: {p.selected.scale.toFixed(3)} · Yaw: {(p.selected.yaw_radians * 180 / Math.PI).toFixed(1)}° · Neighbors: {p.neighbor_check}</p>
+        <p>Plan scale: {p.selected.scale.toFixed(3)}{p.selected.scale_y ? ` · Vertical scale: ${p.selected.scale_y.toFixed(3)} (from the recorded height, not the plan fit)` : ' · Vertical scale: uniform'} · Yaw: {(p.selected.yaw_radians * 180 / Math.PI).toFixed(1)}° · Neighbors: {p.neighbor_check}</p>
+        <p className="dimmer">Fitted size: {p.fitted_dimensions_m.map((v) => v.toFixed(1)).join(' × ')} m (length × height × width)</p>
         <p>Source: {p.provenance.source} / {p.provenance.feature_id} · Sponsor world: not integrated</p>
         <MatrixView m={p.selected.matrix_column_major} />
         <p className="dimmer">Column-major matrix applied once to the displayed GLB. The export includes this manifest and {s.bundle ? 'the unchanged imported model and provenance' : cached ? 'the simplified model with its derivation record' : 'the original model'}.</p>

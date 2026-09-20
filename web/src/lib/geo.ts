@@ -16,6 +16,9 @@ export interface GeoResult {
   identityConfirmed?: boolean
   bucket: string
   areaM2: number
+  /** OSM `height` in metres when the record carries one. Only an explicitly tagged height is
+   *  used — deriving one from building:levels would be an estimate presented as a record. */
+  heightM?: number
 }
 
 const M_PER_DEG_LAT = 110_540
@@ -86,17 +89,98 @@ async function geocode(q: string) {
   return { lat: +data[0].lat, lon: +data[0].lon, displayName: data[0].display_name as string }
 }
 
-interface OsmWay { id: number; geometry: { lat: number; lon: number }[] }
+type LatLon = { lat: number; lon: number }
+interface OsmWay { type: 'way'; id: number; geometry: LatLon[]; tags?: Record<string, string> }
+interface OsmRelation {
+  type: 'relation'; id: number; tags?: Record<string, string>
+  members: { type: string; role: string; geometry?: LatLon[] }[]
+}
+type OsmElement = OsmWay | OsmRelation
+/** What the fetch layer hands back: one ring per building, with the tags that described it. */
+export interface OsmBuilding { id: string; ring: LatLon[]; tags?: Record<string, string> }
 
-async function fetchBuildings(lat: number, lon: number) {
-  const q = `[out:json][timeout:15];way["building"](around:140,${lat},${lon});out geom;`
-  const res = await withTimeout(
-    fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(q) }),
-    16000,
-  )
-  if (!res.ok) throw new Error(`overpass ${res.status}`)
-  const data = await res.json()
-  return (data.elements as OsmWay[]).filter((w) => w.geometry?.length >= 4)
+// A single endpoint is a single point of failure: overpass-api.de returns 406 on some networks,
+// and a blocked GIS lookup silently degrades the whole app to the synthetic demo parcel.
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+]
+
+/** OSM heights are metres unless suffixed; anything non-numeric is left unknown rather than guessed. */
+export function osmHeight(tags: Record<string, string> | undefined): number | undefined {
+  const raw = tags?.height
+  if (!raw) return undefined
+  const value = Number.parseFloat(raw)
+  return Number.isFinite(value) && value > 0 && value < 1000 && /^[\d.]+\s*m?$/.test(raw.trim())
+    ? value : undefined
+}
+
+/** Largest closed outer ring of a multipolygon relation, in plan area.
+ *  A relation can have several outer parts (Burruss has four); the footprint type here is one
+ *  ring, so the dominant part is used and the rest are left out rather than merged badly. */
+function largestOuterRing(relation: OsmRelation): LatLon[] | null {
+  let best: LatLon[] | null = null, bestArea = 0
+  for (const member of relation.members ?? []) {
+    if (member.role !== 'outer' || member.type !== 'way' || !member.geometry) continue
+    const ring = member.geometry
+    if (ring.length < 4) continue
+    // Shoelace in degrees is only used to RANK parts, never as a metre measurement.
+    let area = 0
+    for (let i = 0; i < ring.length; i++) {
+      const a = ring[i], b = ring[(i + 1) % ring.length]
+      area += a.lon * b.lat - b.lon * a.lat
+    }
+    area = Math.abs(area) / 2
+    if (area > bestArea) { bestArea = area; best = ring }
+  }
+  return best
+}
+
+async function overpass(query: string, timeoutMs: number): Promise<OsmElement[]> {
+  let lastError: Error | null = null
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const res = await withTimeout(
+        fetch(endpoint, { method: 'POST', body: 'data=' + encodeURIComponent(query) }), timeoutMs,
+      )
+      if (!res.ok) throw new Error(`overpass ${res.status}`)
+      return (await res.json()).elements as OsmElement[]
+    } catch (e) { lastError = e as Error }
+  }
+  throw lastError ?? new Error('overpass unavailable')
+}
+
+function toBuildings(elements: OsmElement[]): OsmBuilding[] {
+  const buildings: OsmBuilding[] = []
+  for (const element of elements) {
+    if (element.type === 'way') {
+      if (element.geometry?.length >= 4) {
+        buildings.push({ id: `way/${element.id}`, ring: element.geometry, tags: element.tags })
+      }
+    } else if (element.type === 'relation') {
+      const ring = largestOuterRing(element)
+      if (ring) buildings.push({ id: `relation/${element.id}`, ring, tags: element.tags })
+    }
+  }
+  return buildings
+}
+
+async function fetchBuildings(lat: number, lon: number, log: (m: string) => void) {
+  const area = `(around:140,${lat},${lon})`
+  const ways = toBuildings(await overpass(`[out:json][timeout:20];way["building"]${area};out geom;`, 16000))
+  // A building mapped as type=multipolygon carries `building` on the RELATION, so the way query
+  // above misses it entirely — including Burruss Hall, this project's own example. Resolving
+  // relation member geometry is far slower and frequently times out on public mirrors, so it is
+  // a SEPARATE best-effort request: it can add buildings but never delay or break the way path.
+  let relations: OsmBuilding[] = []
+  try {
+    relations = toBuildings(
+      await overpass(`[out:json][timeout:25];relation["building"]${area};out geom;`, 12000))
+  } catch (e) {
+    log(`gis › multipolygon buildings unavailable (${(e as Error).message}); ways only`)
+  }
+  return [...ways, ...relations]
 }
 
 function stripClosing(p: V2[]) {
@@ -143,9 +227,9 @@ export async function resolveAddress(query: string, log: (m: string) => void): P
   }
   try {
     log('gis › fetching building footprints (Overpass, r=140 m)')
-    const ways = await fetchBuildings(lat, lon)
+    const ways = await fetchBuildings(lat, lon, log)
     if (!ways.length) throw new Error('no buildings nearby')
-    const polys = ways.map((w) => ({ id: w.id, poly: stripClosing(w.geometry.map((g) => project(g.lat, g.lon, lat, lon))) }))
+    const polys = ways.map((w) => ({ id: w.id, tags: w.tags, poly: stripClosing(w.ring.map((g) => project(g.lat, g.lon, lat, lon))) }))
     const origin = { x: 0, z: 0 }
     const hit =
       polys.find((p) => pointInPolygon(origin, p.poly)) ??
@@ -155,11 +239,11 @@ export async function resolveAddress(query: string, log: (m: string) => void): P
     const [clat, clon] = unproject(c, lat, lon)
     const shift = (p: V2[]) => p.map((v) => ({ x: v.x - c.x, z: v.z - c.z }))
     const footprint = shift(hit.poly)
-    log(`gis › matched way/${hit.id} · ${footprint.length} vertices · ${polys.length - 1} neighbors`)
+    log(`gis › matched ${hit.id} · ${footprint.length} vertices · ${polys.length - 1} neighbors`)
     return {
       query, displayName, lat: clat, lon: clon, footprint,
       neighbors: polys.filter((p) => p !== hit).map((p) => shift(p.poly)),
-      source: 'osm', osmId: `way/${hit.id}`, bucket: geohash(clat, clon),
+      source: 'osm', osmId: hit.id, bucket: geohash(clat, clon), heightM: osmHeight(hit.tags),
       footprintLatLon: footprint.map((p) => unproject(p, clat, clon)), areaM2: polygonArea(footprint),
     }
   } catch (e) {

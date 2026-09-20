@@ -5,6 +5,8 @@ import * as THREE from 'three'
 import type { MeshAsset } from '../lib/reconstruct'
 import type { PlacementManifest } from '../lib/api'
 import { sceneRing } from '../lib/api'
+import { adjustedMatrix, adjustedProxy } from '../lib/placement'
+import type { Adjustment } from '../store'
 
 /** Raw scene graph below one matrix node. Never also apply asset.normalization. */
 export function PlacedAsset({ asset, matrix }: { asset: MeshAsset; matrix: number[] }) {
@@ -15,19 +17,22 @@ export function PlacedAsset({ asset, matrix }: { asset: MeshAsset; matrix: numbe
   </group>
 }
 
-export default function PlacedScene({ asset, placement, raw = false }: {
-  asset: MeshAsset; placement: PlacementManifest; raw?: boolean
+export default function PlacedScene({ asset, placement, raw = false, adjust = null }: {
+  asset: MeshAsset; placement: PlacementManifest; raw?: boolean; adjust?: Adjustment | null
 }) {
   const footprint = sceneRing(placement.request.footprint.exterior)
-  const proxy = sceneRing(placement.selected.fitted_proxy.exterior)
+  const proxy = adjustedProxy(placement, adjust)
   const loop = (p: typeof footprint, y: number): [number, number, number][] =>
     [...p, p[0]].map((v) => [v.x, y, v.z])
-  return <Canvas frameloop="demand" camera={{ position: [75, 65, 95], fov: 45 }} dpr={[1, 1.5]}>
+  // Bounds preserves the camera's DIRECTION while fitting, so this vector chooses the viewing
+  // angle. ~17 deg above the horizon shows facades; the previous 28 deg looked down at roofs,
+  // which hid the restyle once the model was scaled to its real 20 m height instead of 48 m.
+  return <Canvas frameloop="demand" camera={{ position: [68, 34, 92], fov: 45 }} dpr={[1, 1.5]}>
     <color attach="background" args={['#100e0d']} />
     <hemisphereLight args={['#ffffff', '#66564c', 2]} />
     <directionalLight position={[30, 70, 40]} intensity={2.5} />
-    <Bounds fit clip observe margin={1.3} key={`${raw}-${placement.asset_sha256}-${placement.selected.index}`}>
-      <PlacedAsset asset={asset} matrix={raw ? new THREE.Matrix4().toArray() : placement.selected.matrix_column_major} />
+    <Bounds fit clip observe margin={1.08} key={`${raw}-${placement.asset_sha256}-${placement.selected.index}`}>
+      <PlacedAsset asset={asset} matrix={raw ? new THREE.Matrix4().toArray() : adjustedMatrix(placement, adjust)} />
       {!raw && <>
         <Line points={loop(footprint, 0.08)} color="#ff6b2c" lineWidth={3} />
         {placement.request.footprint.holes.map((ring, i) => <Line key={i} points={loop(sceneRing(ring), 0.08)} color="#ff6b2c" lineWidth={3} />)}

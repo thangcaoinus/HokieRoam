@@ -13,13 +13,21 @@ prompt → AI image-to-image redesign → image-to-3D mesh → an automatically 
 that mesh onto the authoritative GIS footprint → inspectable 4×4 matrix, exported GLB + placement manifest
 → third-person walkable scene.
 
-Document authority, in order:
-- `implementation-plan.md` — **active scope**: 16-hour schedule, feature freeze, budget and cutoff rules.
+Document authority, in order (re-read all root `.md` files 2026-09-19):
+- `mvp-next-steps.md` — **active scope**: what "done" now means (one real building end to end),
+  the four remaining slices and the deferred-work gates. It supersedes the 16-hour countdown.
+- `progress-report.md` — **what is actually built and what was checked**, slice by slice, with the
+  limitations spelled out. The most current status document; trust it over older plans.
+- `pitch-plan.md` — product direction and the pitch itself ("Reimagine a place. Walk into your idea.").
+  Creative framing, not an engineering status.
 - `work-split.md` — **who does what**: self-contained lanes P0–P6, file ownership, and the frozen HTTP
   contract. Read this before picking up a task; it is the collision guard.
 - `feasibility-plan.md` — coordinate/geometry/export contracts and the service-boundary sketch (§4, §5, §6, §8).
 - `technical-reference.md` — research and deferred scope. Consult for a specific question; not a build order.
+- `implementation-plan.md` — the original 16-hour schedule. **Historical**; its countdown is not evidence
+  of remaining time.
 - `spec.md` — the original pitch. What judges were promised, not what is being built.
+- `README.md` — the public entry point; points at the example flows and the documents above.
 
 ## What the sponsor actually asked for (researched 2026-09-19)
 
@@ -73,18 +81,37 @@ currently reimplementing their product with Nominatim and Overpass, and the P1/P
 hacker guide says company-specific details are posted on Discord and mentors are reachable via the help
 desk. Ask; do not assume.
 
-## Repository state (verified 2026-09-19)
+## Repository state (verified 2026-09-19, re-checked after the four MVP slices)
 
-Be precise about this — the two halves have never talked to each other.
+Be precise about this. The two halves now do talk, and the browser fit is no longer in the
+authoritative path for API assets.
 
 | Area | State |
 | --- | --- |
-| `web/` | Complete 5-stage UI. `npm run build` passes. Runs the **entire pipeline standalone in simulation mode** when `VITE_API_BASE` is unset. |
-| `server/` | **Working pipeline service** (P0 + P1, 2026-09-19). `app/main.py` (assembly + lifespan), `routes.py` (all 7 `/v1` handlers, implemented), `pipeline.py` (orchestration). Drives a fixture job end to end: photo → concept → GLB → fit → export bundle. `ruff check app` clean, and `tests/test_fit.py` (P3) covers the four required geometry/export regressions. |
-| Integration | **Wired (P2, 2026-09-19).** With `VITE_API_BASE` set, Redesign starts one `pipeline` job via `lib/pipelineJob.ts`, Reconstruct follows the same job and loads its GLB from the server, and a reload re-attaches from localStorage. Observed end to end against the fixture server. **Still local:** `FitStage` runs the browser `solveFit` even on a server mesh — calling `requestFit` for API jobs is P3's open item. |
-| Assets | `samples/` (P4): DDS building photo, OSM way 1174211880 footprint, and a **fixture-generated** concept/model/manifest — labelled synthetic. **Real paid Meshy generations have now run** (2026-09-19): `samples/burruss-medieval-4view/` is the best asset — 4 photos → 4 `image-to-image` calls → **one** `multi-image-to-3d` call, 59k faces with a real footprint and depth (job `41db2b5c…`); `samples/burruss-medieval/` is the same prompt from 1 view (job `97b27cfe…`), kept as the single-view-is-a-flat-facade comparison; `samples/burruss-green-scape/` is a 4-view run that **stalled at `redesign_3`** — resumable by request key, never resubmit. Twelve submissions are recorded in `server/.data/jobs.sqlite3`. |
+| `web/` | Complete 5-stage UI plus three no-backend entry points: **Load completed real example** (`/?example=burruss`, static artifacts in `web/public/examples/burruss/`; `/?example=dds` still serves the rejection example), **Open saved ZIP** (re-opens an export into Explore, hash-checked, retained byte-for-byte for re-export), and the labelled local simulation when `VITE_API_BASE` is unset. `npm run build` passes — observed 2026-09-19; the >500 kB main-chunk warning is known and accepted. |
+| `server/` | **Working pipeline service.** `app/main.py` (assembly + lifespan), `routes.py` (all 7 `/v1` handlers), `pipeline.py` (orchestration). Drives a fixture job end to end: 1–4 photos → concepts → GLB → fit → export bundle. **`.venv/bin/python -m pytest` → 76 passed** (`test_fit.py`, `test_fit_generality.py`, `test_meshy.py`, `test_job_options.py`), observed 2026-09-19. **`ruff check app` is CLEAN** — the 3 × E501 from the `target_polycount` plumbing were fixed 2026-09-19. (`ruff check tests` still reports 2 × E501 in `test_job_options.py`; `tests/` is outside the documented gate.) |
+| Integration | **Wired, including the fit.** With `VITE_API_BASE` set, Redesign starts one `pipeline` job via `lib/pipelineJob.ts`, Reconstruct follows the same job and loads its GLB, and a reload re-attaches from localStorage. `FitStage.tsx` is now a dispatcher — `serverMesh ? <ServerFitStage/> : <PreviewFitStage/>` (`FitStage.tsx:68`) — so a server mesh goes through `requestFit` and the server's `PlacementManifest`, and the browser `solveFit` only runs for simulation and manual imports. The same matrix drives Fit, Explore, export and refresh; changing mesh or footprint invalidates a stale placement. **The P3 gap recorded in older notes is closed.** |
+| Assets | `samples/` (P4): DDS building photo, OSM way 1174211880 footprint, and a **fixture-generated** concept/model/manifest — labelled synthetic. **Real paid Meshy generations have now run** (2026-09-19): `samples/burruss-medieval-4view/` is the best asset — 4 photos → 4 `image-to-image` calls → **one** `multi-image-to-3d` call, 59k faces with a real footprint and depth (job `41db2b5c…`); `samples/burruss-medieval/` is the same prompt from 1 view (job `97b27cfe…`), kept as the single-view-is-a-flat-facade comparison; `samples/burruss-green-scape/` is a 4-view run that **stalled at `redesign_3`** — resumable by request key, never resubmit. Twelve submissions are recorded in `server/.data/jobs.sqlite3`; the ledger never resets, and `PIPELINE_MAX_SUBMISSIONS` in `server/.env` was raised 6 → **100** on 2026-09-19 because 12 ≥ 6 was failing every new paid job at reserve time (`server/.env.example` still ships the conservative 12). Note a 4-view job costs **5** slots: one `image-to-image` per view plus one `multi-image-to-3d`. |
+| Demo assets | **The demo example is now Burruss, not DDS** (2026-09-19). `web/public/examples/burruss/` is built from `samples/burruss-medieval-4view/` — 59,246 triangles, **no decimation** (Meshy already met the 60k target, so `prepare-example.mjs` computes `ratio = 1.013` and skips `simplify`), footprint OSM **way/32963472** (`relation/1074686`'s largest outer part, 4,381 m² via pyproj), height **20.7 m from the OSM `height` tag**. Placement is **rejected at 73.13 % IoU** (spill 17.1 % > the 15 % limit) and the UI says so. `web/public/examples/dds/` is retained as the honest **rejection** example — 59,962 triangles decimated from 1,746,050, **rejected at 52.62 % IoU**. `samples/live/` still holds the untouched 62,465,636-byte DDS generation. Neither number is a bug to paper over. |
 
 ## Commands
+
+### everything at once (run from the repo root)
+
+```bash
+./dev.sh                      # fixture provider: API :8000 + web :5173, wired, no credits
+./dev.sh --meshy              # live provider — SPENDS REAL CREDITS; aborts unless health says live:true
+./dev.sh --sim                # frontend only, browser simulation mode (no backend)
+./dev.sh --api-port 8011 --web-port 5184 --fixture-delay 10
+```
+
+`dev.sh` bootstraps `web/node_modules` and `server/.venv` if missing (deps only — the package stays
+un-pip-installed), exports the provider env (sourcing `server/.env` only under `--meshy`, since nothing
+in `app/` reads a dotenv), **writes `web/.env.local`** with the matching `VITE_API_BASE`, waits for
+`/v1/health` before starting Vite, and kills both process groups on exit. Verified 2026-09-19: fixture
+run on :8011/:5184 reached health + web 200 and tore both down cleanly; `--sim` serves the UI alone.
+Ports are checked first and it refuses rather than picking another one. It does **not** pass
+`--meshy` health as a licence to demo live — the credit cap still applies.
 
 ### web (run from `web/`)
 
@@ -95,9 +122,38 @@ npm run build      # tsc -b (typecheck) + vite build → dist/
 npm run preview
 ```
 
-No linter and no test runner are configured. `npm run build` is the only frontend gate — a clean `tsc -b`
-is the check. Backend hook-up: put `VITE_API_BASE=http://localhost:8000` in `web/.env.local`; unset means
-local simulation.
+No linter and no unit-test runner are configured. `npm run build` is the standing frontend gate — a clean
+`tsc -b` is the check. Backend hook-up: put `VITE_API_BASE=http://localhost:8000` in `web/.env.local`
+(or let `dev.sh` write it); unset means local simulation.
+
+Browser checks live in `web/scripts/` and drive a real page with **Playwright + Chromium**. Playwright
+is **not** a repo dependency: install it out of tree and point `PLAYWRIGHT_MODULE` at it. What worked
+here on 2026-09-19 was `npm install --no-save playwright-core` plus
+`npx playwright-core install chromium-headless-shell` (the cached build must match the module's
+expected revision), then:
+
+```bash
+npm run build && npx vite preview --port 5175 --strictPort &
+PLAYWRIGHT_MODULE=playwright-core CHECK_WEB=http://localhost:5175 node scripts/check-example.mjs
+```
+
+`check-example.mjs` and `check-bundle.mjs` take `CHECK_EXAMPLE` (default `burruss`) and assert against
+the shipped `example.json` rather than memorised strings, so they follow the example instead of pinning
+one building. **Build with `VITE_API_BASE` unset** (move `web/.env.local` aside) or `check-example.mjs`
+fails its "no API requests" assertion on the header's health probe. They are end-to-end proofs, not unit
+tests, and none of them submits a provider job:
+
+```bash
+node scripts/prepare-example.mjs          # rebuild web/public/examples/burruss (the demo example)
+node scripts/prepare-example.mjs dds      # rebuild the DDS rejection example
+node scripts/check-placement.mjs   # Fit/Explore/export/refresh share one matrix (needs an isolated fixture server)
+node scripts/check-example.mjs     # static example loads with API + GIS blocked; corrupt hash is rejected
+node scripts/check-bundle.mjs      # saved-ZIP import, re-export byte-identical, refresh
+node scripts/check-polycount.mjs   # target_polycount UI → request identity, with all API calls intercepted
+node scripts/check-ingest-live.mjs # NETWORK: real Nominatim + Overpass → real footprint → photo → Redesign
+```
+
+Headless Chromium with software rendering: these prove plumbing, **not** demo-laptop frame rate.
 
 ### server (run from `server/`)
 
@@ -158,22 +214,67 @@ Scene frame is **X = East, Y = Up, Z = South**, meters, right-handed. Plan coord
   campus-scale demo, but **not the same math** — do not assume the two agree to the meter.
 - Never fit in degrees. Never treat a Web Mercator unit as a ground meter.
 
+### Acceptance rules changed 2026-09-19 — read this before touching `fit.py`
+
+`contained` used to be the **hard validity gate** (`fit.py`), evaluated with Shapely `covers` at
+`numerical_tolerance_m = 1e-6`. `covers` is an exact topological predicate, and this transform
+chain's own floating-point noise is ~1e-5 m² of spill — ten times that tolerance. Measured on a
+perfectly convex 1,048 m² footprint over 12 randomised yaw/offset trials: **4 of 12 geometrically
+perfect fits (IoU 99.99999 %) were reported `rejected`**, at random. Across the whole generality
+suite only **1 of 24 runs** ever reached `accepted`.
+
+Now:
+
+- **Neighbour overlap filters selection** (a building cannot occupy another building).
+- **Spill does not.** It decides whether the best placement is *good enough*, never *which*
+  placement is reported — filtering on it made the engine return a worse, under-filled candidate
+  instead of naming the honest best fit.
+- `contained` is still computed and reported, and raises a warning; it gates nothing.
+- `max_spill_fraction` defaults to **0.15**, tied to `min_iou` rather than taste: with a convex
+  proxy achievable IoU is capped near `1 − spill`, so allowing 15 % spill states the same thing as
+  requiring 0.85 IoU. **Revisit it if the proxy stops being convex. Never raise it to manufacture
+  an `accepted`.**
+- **Measured height, and why it is BOUNDED**: `measured_height_m` sets vertical scale to `Ht/Hm`
+  independently of the plan scale (`feasibility-plan.md` §5.4) and moves `PlacementManifest.height`
+  to `source-record`. It never touches the plan fit — a test pins that. **But applying it
+  unconditionally squashed Burruss by 2.34×** (94.4 × 20.7 × 63.7 m, L:H 4.56, against a mesh whose
+  own L:H is 1.95). OSM's `height=20.7` is the main eaves; the mesh includes the tower — they
+  measure different things. So `max_height_correction` (default **1.25**) bounds the departure from
+  the uniform scale; beyond it, proportions are kept and the disagreement becomes a warning. Deck
+  p.58 says *prefer* proportion-preserving uniform scaling and *allow limited* non-uniform — a
+  2.34× squash is not "limited". Burruss currently reports `height: inferred` for this reason.
+
+#### Measured negative results — do not redo these
+
+- **A non-convex / apron-stripped proxy makes things worse, not better.** Restricting the proxy to
+  a wall band (10–75 % of height) drops Burruss from **73.13 % → 58.72 %** and DDS from 64.32 % →
+  30.02 %. The apron was *masking* a shape mismatch, not causing one: the generated walls cover
+  less plan area than the real footprint. Both buildings' footprints have wings the mesh never
+  reproduces. This is `technical-reference.md` §5.6's topology mismatch.
+- **DDS can never be accepted.** Its footprint is 70.3 % of its own convex hull, so a convex proxy
+  caps IoU at 0.703 < `min_iou` 0.85. Rejecting it is correct behaviour.
+- Deferred and *not* implemented, because each is worth little and none is visible on screen: FFT
+  translation/scale search (+11.7 pts DDS, **+1.2 Burruss**), bounded anisotropy (+3–4 pts).
+
 ### Two fit engines exist, and they disagree
 
 | | `web/src/lib/fit.ts` → `solveFit` | `server/app/geometry/fit.py` → `fit_glb` |
 | --- | --- | --- |
 | Input | live `THREE.Object3D` in the browser | GLB bytes on the server |
 | Mesh proxy | OBB + hull of the bottom-20 %-height slice | convex hull of **all** projected vertices |
-| Scale | uniform, plus constrained non-uniform up to 1.25× on the slack axis when aspect divergence > 8 % | uniform only |
-| Accept rule | best IoU always wins; confidence heuristic + ok/warn/error flags | requires containment **and** zero neighbor overlap, then `iou ≥ min_iou` (0.85) → `accepted` / `review` / `rejected` |
+| Scale | uniform, plus constrained non-uniform up to 1.25× on the slack axis when aspect divergence > 8 % | uniform in plan; vertical scale independent when `measured_height_m` is supplied |
+| Accept rule | best IoU always wins; confidence heuristic + ok/warn/error flags | best IoU among neighbour-free candidates wins; then `spill ≤ max_spill_fraction` (0.15) **and** `iou ≥ min_iou` (0.85) → `accepted` / `review` / `rejected`. Containment is reported, not enforced — see above |
 | Metrics | IoU, collisions > 0.5 m² | IoU, coverage, spill fraction + area, containment, neighbor overlap |
 | Output | `FitResult` with factored matrices | `PlacementManifest` — asset sha256, provenance, all four candidates, warnings |
 | Composition | `M = T_target · R_y(θ) · S · T_ground · R_align · N` | `T(c) · yaw(β) · diag(s) · K`, where `K = yaw(−θ_src) · T(−c_src.x, −base, +c_src.y) · N` |
 
 `feasibility-plan.md` §8 requires that **all authoritative fit results come from one implementation**.
-`server/app/geometry/fit.py` is authoritative: it emits the versioned `PlacementManifest`, validates the
-actual polygon and neighbor overlap, and uses uniform scale. The browser solver remains a clearly labelled
-offline/simulation preview only; it must not certify or overwrite a Pipeline API placement.
+`server/app/geometry/fit.py` is authoritative, and as of the first MVP slice the code enforces it:
+`FitStage.tsx` dispatches a server mesh to `ServerFitStage.tsx` → `requestFit`, and `PlacedScene.tsx`
+applies the manifest's column-major matrix **once** to the raw asset (no second normalization).
+`lib/placement.ts` is the shared scene representation and checks the asset hash and fit inputs before a
+saved placement is restored. The browser solver is now reached only from `PreviewFitStage` — simulation
+and manual imports — and must not certify or overwrite a Pipeline API placement.
 
 **Neither engine currently satisfies deck p.58 on its own**, and that slide is the rubric. It asks for
 bounded non-uniform scaling *and* a manual-review path. `fit.ts` has the bounded non-uniform scale
@@ -192,21 +293,44 @@ re-attaches on load with GET only; photo, concept and mesh come back from the jo
 
 Stages (`web/src/stages/`):
 
-1. **Ingest** — browser-side Nominatim geocode + Overpass `way["building"](around:140,…)`, both with
-   timeouts, falling back to the synthetic L-shaped `demoGeo()` parcel; registers a geohash bucket in
-   `localStorage` (`lib/geo.ts`).
+1. **Ingest** — browser-side Nominatim geocode + Overpass, both with timeouts, falling back to the
+   synthetic L-shaped `demoGeo()` parcel. **Overpass hardening, 2026-09-19:** the single
+   `overpass-api.de` endpoint returns **406 on some networks** (reproduced here), which silently
+   degraded every lookup to the demo parcel — `lib/geo.ts` now falls through three mirrors. And the
+   old `way["building"]` query **missed every multipolygon building**, because `type=multipolygon`
+   buildings carry the `building` tag on the *relation*: around the Drillfield that is **4 of 13
+   buildings (31 %), including Burruss Hall itself**, plus Pamplin, Burchard and Johnston. A
+   separate best-effort `relation["building"]` request now runs *after* the way query (resolving
+   relation member geometry is slow and often 504s on public mirrors, so it may add buildings but
+   can never delay or break the way path) and `largestOuterRing()` reduces a multipolygon to its
+   dominant outer part. `osmHeight()` reads an explicit `height` tag only — `building:levels × 3.5`
+   would be an estimate dressed as a record; registers a geohash bucket in
+   `localStorage` (`lib/geo.ts`). Accepts **at most four** PNG/JPEG photos of the same building — the
+   provider's real ceiling, enforced here so the rejection is not a surprise after the upload. Two
+   backend-free entries live here: **Load completed real example** (`lib/cachedExample.ts`) and
+   **Open saved ZIP** (`lib/savedBundle.ts`, which validates filenames and sizes, checks artifact
+   SHA-256s and the manifest's model hash, requires a self-contained GLB, keeps the archive in
+   IndexedDB for refresh, and re-exports it byte-for-byte without re-fitting).
 2. **Redesign** — API mode: `startJob()` in `lib/pipelineJob.ts` creates one `kind=pipeline` job
    (Idempotency-Key derived from photo+prompt+strength, persisted before the POST) and `JobPanel`
-   renders the server's real stage/status/progress. Simulation: `simulateRedesign()`, a deterministic
-   canvas color-grade per preset (`lib/presets.ts`), bannered as not AI generation.
+   renders the server's real stage/status/progress. **Target polygons for 3D** (100–300,000, UI default
+   60,000) is part of the request fingerprint, so changing it is a different logical job; it applies to
+   the next API generation only, never to an already-loaded cached model. Simulation: `simulateRedesign()`,
+   a deterministic canvas color-grade per preset (`lib/presets.ts`), bannered as not AI generation.
+   `lib/creativePrompt.ts` shapes the prompt text.
 3. **Reconstruct** — API mode: follows the same job and loads its GLB via `loadMeshUrl()`; there is no
    separate paid reconstruct click. Simulation: `simulateReconstruct()` → `buildProcedural()`. The simulated mesh is deliberately emitted **Z-up, centimeters, off-origin and
    rotated** so the fitting engine has real work to undo — keep that quirk. Also accepts a user
    `.glb`/`.obj`; `unitHeuristic()` guesses units from bounding-box size.
-4. **Fit** — runs `solveFit`, animates a 7-step solver trace into the event log, exports
-   `transform-{bucket}.json` and a map-anchored GLB via `GLTFExporter`.
-5. **Explore** — R3F canvas, capsule controller (WASD/Shift/Space/mouse-look), lerped chase camera,
-   collision against the fitted hull, footprint and neighbor parcels.
+4. **Fit** — `FitStage.tsx` dispatches: a server mesh renders `ServerFitStage` (calls `requestFit`,
+   shows the manifest's accepted/review/rejected state, IoU, coverage, spill, neighbor overlap, warnings
+   and the chosen matrix, and downloads the server's ZIP after re-checking that the saved placement still
+   matches what is on screen); everything else renders `PreviewFitStage`, which runs `solveFit`, animates
+   the 7-step solver trace and exports `transform-{bucket}.json` plus a map-anchored GLB via `GLTFExporter`.
+5. **Explore** — R3F canvas; opens in **orbit**, offers exterior **walk-around** (capsule controller,
+   WASD/Shift/Space/mouse-look, lerped chase camera, collision against the fitted hull, footprint and
+   neighbour parcels) and a reset-camera action. A raw-model toggle inspects the asset without the
+   placement transform. Walk mode is exterior only — it does not claim reconstructed interiors.
 
 The header chip reads **"Local AI simulation"** when `VITE_API_BASE` is unset; otherwise it probes
 `GET /v1/health` and reads `Pipeline API connected · meshy`, `· fixture (synthetic)`, `unreachable` or
@@ -244,12 +368,16 @@ promptly; the client polls.
 ```text
 GET  /v1/health                          -> HealthView {provider, live, submissions_used}
 POST /v1/jobs                            -> 202 JobView
-     multipart: image, prompt, strength (0..1), kind (pipeline|redesign|reconstruct)
+     multipart: image (1-4 files, same building), prompt, strength (0..1),
+                kind (pipeline|redesign|reconstruct), target_polycount (100..300000, optional)
      header:    Idempotency-Key -> storage request_key (UNIQUE; a repeat returns the same job)
 GET  /v1/jobs                            -> list[JobView]
 GET  /v1/jobs/{job_id}                   -> JobView            # the poll endpoint
-GET  /v1/jobs/{job_id}/artifacts/{name}  -> bytes              # name: source | concept | model
+GET  /v1/jobs/{job_id}/artifacts/{name}  -> bytes
+     name: source | source_2..4 | concept | concept_2..4 | model   (view 1 keeps the bare name)
 POST /v1/jobs/{job_id}/fit               -> PlacementManifest  # body: FitRequest
+     FitRequest also carries max_spill_fraction (0..1, default 0.15) and
+     measured_height_m (optional metres) -- both mirrored in web/src/lib/api.ts
 GET  /v1/jobs/{job_id}/export            -> application/zip    # storage.bundle()
 ```
 
@@ -268,6 +396,19 @@ Notes that are load-bearing rather than incidental:
   state to retry past; a human reconciles it in the provider account.
 - `ArtifactName` is a `Literal` on both sides, so an unknown name is rejected with 422 before any
   handler runs — on top of `storage.artifact()`'s server-owned `files` allowlist.
+- **Three places validate a `PlacementManifest`, not one.** `schemas.py` (pydantic),
+  `web/src/lib/api.ts` (types) and **`web/src/lib/savedBundle.ts` (runtime checks on an imported
+  ZIP)**. Widening a literal or adding a request field means editing all three plus
+  `web/src/lib/placement.ts:fitRequest`; `placementMatches` compares the *whole* request
+  canonically, so any field the browser fails to resend rejects an otherwise valid placement.
+  Both `cachedExample.ts` and `savedBundle.ts` must rebuild `GeoResult` with every field that
+  reaches `fitRequest` (this is how `measured_height_m` broke bundle import on 2026-09-19).
+- `target_polycount` is carried end to end and **must stay that way**: frontend state → session →
+  idempotency fingerprint → multipart field → persisted job settings → `JobView` → provider submission
+  (including after a restart) → `generation.json` in the export. An omitted field falls back to the
+  server default; an older job without the setting keeps reporting its historical fallback rather than
+  having a number invented for it. Meshy treats the target as approximate, and a fixture mesh does not
+  become real remeshing because a target was chosen.
 - `api.ts` also exports `planFromScene` / `sceneFromPlan` / `planRing` / `sceneRing`. Every polygon in
   the API is **plan metres, (East, North)**; the scene is x/z. The flip is `(East, North) = (x, −z)`,
   the same one `fit.py` spells `* [1, -1]` and `fit.ts` spells `-z`.
@@ -306,15 +447,52 @@ re-derive a split here; edit that file.
 
 Three rules from it that apply to every task in this repo:
 
-- **P0, P1 and P2 are done** (2026-09-19). The contract is frozen in `server/app/schemas.py` ↔
-  `web/src/lib/api.ts`, the backend works end to end on the fixture provider, and the frontend drives
-  real jobs through it. Remaining code gap: `FitStage` should call `requestFit` for API jobs (P3).
+- **P0–P3 are done** (2026-09-19). The contract is frozen in `server/app/schemas.py` ↔
+  `web/src/lib/api.ts`, the backend works end to end on the fixture provider, the frontend drives real
+  jobs through it, and the server fit is now the authoritative one for API assets. The lane text in
+  `work-split.md` still lists the `requestFit` wiring as open — that is stale; the code is in
+  `ServerFitStage.tsx`.
 - **One owner per file.** If you need a file your lane does not own, ask its owner rather than editing it.
   `schemas.py` and `web/src/lib/api.ts` are shared — they change in pairs, and only with an announcement.
 - **Report what ran, not what was written.** A lane is done when its check was executed and observed.
 
 Human-only lanes: P4 (confirm the building and footprint, spend credits, judge whether the generated model
 resembles it) and P6 (obtain the sponsor contract). These are the real critical path, not code volume.
+
+## What is actually left (from `mvp-next-steps.md` + `progress-report.md`)
+
+Ordered. The plumbing is ahead of the demo; do not add more plumbing to avoid the top two items.
+
+1. ~~**A convincing real transformation.**~~ **Done 2026-09-19.** The DDS concept was not a subtle
+   restyle — it was *no visible change at all*, essentially the same building from a slightly
+   different angle. The demo now opens on the Burruss medieval-fantasy four-view generation
+   (vines up the towers, weathered stone, overgrown grounds, unmistakably Burruss Hall). Honest
+   caveats to keep saying out loud: the mesh's **rear is hollow/ruined** (the prompt makes that read
+   as intentional — that is luck, not design) and it carries a **flat paving apron** at its base.
+2. **A fit that is actually useful — but the ceiling here is the generator, not the solver.**
+   Burruss is rejected at **73.13 %** IoU (spill 17.1 % > 15 %), DDS at 52.62 %. Before touching the
+   solver again, read the measured negative results under *Acceptance rules changed* above: a more
+   faithful proxy scores **worse** on both buildings, because the generated mesh lacks wings the real
+   footprint has. The remaining honest levers are a better-shaped generation or a manual-review path,
+   not optimisation. **Never lower a threshold or deform the asset to manufacture an accepted result.**
+3. **Measure the demo laptop.** Load time, orbit/walk responsiveness, memory at the real display size.
+   A triangle count is not an FPS measurement; ~30 FPS at ~30–60k triangles is the engineering goal.
+4. **Package the three minutes** — rehearsed script plus a backup recording of the verified path, with
+   the creative and geographic limits stated out loud.
+5. **Sponsor import only against a concrete contract.** The ZIP is a handoff artifact; there is still no
+   verified Procedura/Scorched Nebraska import endpoint. Do not invent one.
+
+`pitch-plan.md` holds the minute-by-minute three-minute narrative (open on the finished explorable
+result, then reveal photo → prompt → concept → mesh from **labelled cached** output, then orbit/walk,
+then placement + measured fit, then export/restore). Its **first feature to cut** is the two-style
+comparison; the completion gate is one whole real-building workflow, not breadth.
+
+Explicitly deferred, with gates in `mvp-next-steps.md`: COLMAP/OpenMVS/VGGT photogrammetry, Google map
+rendering, broad address coverage, concave/courtyard fit optimization, architecture rewrites.
+
+Also open in the tree: `ruff check app` is clean, but `ruff check tests` still reports 2 × E501 in
+`test_job_options.py`. `web/README.md` / `samples/README.md` still describe the DDS-only example set and
+have **not** been updated for the Burruss switch — do that when touching either area.
 
 ## Conventions
 
