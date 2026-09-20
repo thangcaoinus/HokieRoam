@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, RotateCcw, Terminal } from 'lucide-react'
+import { Boxes, Check, RotateCcw, Terminal } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { STAGES, completed, unlocked, useStore, type ApiState, type StageId } from './store'
 import { probeHealth, resumeSession } from './lib/pipelineJob'
@@ -71,7 +71,9 @@ export default function App() {
                   disabled={!open[st.id]}
                   onClick={() => s.go(st.id)}
                 >
-                  <span className="step-node">{done[st.id] && s.stage !== st.id ? <Check size={14} /> : i + 1}</span>
+                  <span className={`step-node ${done[st.id] && s.stage !== st.id ? 'step-node-icon' : ''}`}>
+                    {done[st.id] && s.stage !== st.id ? <Check size={14} /> : i + 1}
+                  </span>
                   <span>
                     <div className="step-title">{st.title}</div>
                     <div className="step-sub">{st.sub}</div>
@@ -80,7 +82,18 @@ export default function App() {
               </li>
             ))}
           </ol>
-          <button className={`btn ${s.stage === 'sandbox' ? 'primary' : ''}`} style={{ margin: '0 18px 18px' }} onClick={() => s.go('sandbox')}>Sandbox · multiple models</button>
+          {/* An aside, not sheet 6: same ruled row as the index, but a glyph where the others
+              carry a number, and banded off by the heavier region rule. */}
+          <button
+            className={`step step-aside ${s.stage === 'sandbox' ? 'active' : ''}`}
+            onClick={() => s.go('sandbox')}
+          >
+            <span className="step-node step-node-icon"><Boxes size={14} /></span>
+            <span>
+              <div className="step-title">Sandbox</div>
+              <div className="step-sub">Multiple models · local scene</div>
+            </span>
+          </button>
           {(s.geo || s.mesh || s.fit || s.placement) && (
             <div className="rail-summary">
               {s.geo && <div className="kv"><span>Footprint</span><span>{s.geo.areaM2.toFixed(0)} m² · {s.geo.source === 'osm' ? s.geo.osmId : s.geo.source === 'derived' ? 'derived from model' : 'demo'}</span></div>}

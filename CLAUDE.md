@@ -441,9 +441,12 @@ volume collides now. `spawnPoint` uses the same set.
    placement transform. Walk mode is exterior only — it does not claim reconstructed interiors.
 
 **Sandbox — multi-model staging, merged 2026-09-20.** A sixth `StageId`, reached from the
-**Sandbox · multiple models** button *below* the numbered sheet list in the rail (it is an aside,
-not sheet 6 — `unlocked().sandbox` is always true, `completed().sandbox` always false, and the
-topbar prints `Sandbox · local scene` instead of a sheet number). `stages/SandboxStage.tsx` +
+unnumbered **Sandbox** row at the foot of the sheet index (it is an aside, not sheet 6 —
+`unlocked().sandbox` is always true, `completed().sandbox` always false, and the topbar prints
+`Sandbox · local scene` instead of a sheet number). It renders as `.step.step-aside`, the same ruled
+row as the five sheets with a `Boxes` glyph where they carry a number, banded off by `--rule-2`; see
+`DESIGN.md` § Structure. It shipped as a filled vermilion `.btn primary` floated in the rail gutter,
+which spent the reserved accent on a permanent control — do not put it back. `stages/SandboxStage.tsx` +
 `lib/sandbox.ts` hold a **separate zustand store** (`useSandbox`) of `{asset, x, z, yaw, scale}`
 models: import many `.glb`/`.obj` at once, arrange them with a TransformControls gizmo or the
 numeric inspector, **Frame all**, then **Walk scene** — which reuses `ExploreStage`'s exported

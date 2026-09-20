@@ -10,7 +10,7 @@ npm run dev        # http://localhost:5173
 
 ## Multi-model sandbox
 
-Open **Sandbox · multiple models** in the sidebar. Import multiple `.glb` or `.obj` files
+Open **Sandbox** — the unnumbered entry at the foot of the sheet index. Import multiple `.glb` or `.obj` files
 at once, or drop them onto the scene. GLB preserves embedded textures; OBJ imports geometry.
 You can also add the current pipeline model. Imports are centered, grounded, and initially spaced apart.
 Matching models preserve the full fitted dimensions used by Explore. Unit-sized imports (all dimensions

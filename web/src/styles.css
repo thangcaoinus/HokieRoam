@@ -191,10 +191,23 @@ input, textarea { caret-color: var(--vermilion); }
   display: grid; place-items: center; height: 17px;
 }
 .step.active .step-node { color: var(--vermilion); font-weight: 700; }
+/* The node is baseline-aligned against the title, and only text carries a baseline: an icon node
+   sat 3.5px lower and made its whole row taller than a numbered one, so rows grew as stages were
+   completed. A hidden zero holds the baseline and the icon is laid over it. */
+.step-node-icon { position: relative; }
+.step-node-icon::after { content: '0'; visibility: hidden; }
+.step-node-icon > svg { position: absolute; inset: 0; margin: auto; }
 .step.done .step-node { color: var(--ok); }
 .step-title { font-weight: 600; font-size: 13px; letter-spacing: -0.005em; line-height: 1.25; }
 .step.active .step-title { color: var(--ink); }
 .step-sub { font-size: 11.5px; color: var(--ink-3); line-height: 1.35; margin-top: 1px; }
+/* The sandbox is an aside, not a sixth sheet. It sits in its own band, closed by the heavier
+   region rule at both edges so the numbered index reads as five entries, not six. The negative
+   margin lets that rule replace the last sheet's hairline instead of doubling it. */
+.step-aside {
+  margin-top: -1px;
+  border-top: 1px solid var(--rule-2); border-bottom: 1px solid var(--rule-2);
+}
 
 /* the field table: measurements, ruled like a titleblock */
 .rail-summary { margin: 0; padding: 0; border-bottom: 1px solid var(--rule-2); }

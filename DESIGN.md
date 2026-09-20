@@ -80,6 +80,17 @@ files, plus `<link rel="preload">` in `index.html`. Verified with all off-origin
   by a 3px vermilion bar in the gutter and a lighter ground — not a filled pill. Then the field
   table of live measurements, then the event log anchored to the foot by `margin-top: auto`, so an
   empty log reads as sheet margin rather than a half-filled box.
+- **`.step-aside`** is the index's one unnumbered entry (Sandbox). It is the same ruled row, but
+  closed at both edges by `--rule-2` — the region rule, not the row hairline — so the index still
+  reads as five numbered sheets with an aside below, and it carries an icon where the others carry
+  a number. It takes `.step.active` unchanged when it is the current sheet, because that marker
+  means "you are here" and vermilion is already spent on exactly that. A button floated in the rail
+  gutter as a filled primary would spend the reserved accent on a permanent control, which is the
+  drift this replaced.
+- **Icon nodes hold the numbered rows' baseline.** `.step` aligns the gutter cell to the title's
+  baseline, and only text carries one, so an icon (the done check, the sandbox glyph) sat 3.5px
+  lower and made its whole row taller — the index visibly grew as stages completed. `.step-node-icon`
+  keeps a hidden zero as the baseline strut and lays the icon over it.
 - **`.card` is a ruled field, not a floating card**: 1px border, 3px radius, a `--rail` header strip.
   No shadow carries structure. Nested cards are still wrong.
 - **`.entries`** groups the no-backend entry points as ruled siblings under one border, so they read

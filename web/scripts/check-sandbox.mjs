@@ -8,7 +8,7 @@ try {
   const errors = []
   page.on('pageerror', e => errors.push(e.message))
   await page.goto(process.env.CHECK_WEB || 'http://127.0.0.1:5175')
-  await page.getByRole('button', { name: 'Sandbox · multiple models' }).click()
+  await page.getByRole('button', { name: /^Sandbox/ }).click()
   await page.getByLabel('Sandbox models').setInputFiles([
     { name: 'first.obj', mimeType: 'text/plain', buffer: Buffer.from('v -2 0 -2\nv 2 0 -2\nv 0 5 0\nv 0 0 2\nf 1 3 2\nf 2 3 4\nf 4 3 1\nf 1 2 4\n') },
     { name: 'small-building.obj', mimeType: 'text/plain', buffer: Buffer.from('v -0.5 0 -0.5\nv 0.5 0 -0.5\nv 0 1 0\nv 0 0 0.5\nf 1 3 2\nf 2 3 4\nf 4 3 1\nf 1 2 4\n') },
@@ -95,7 +95,7 @@ try {
   await page.getByRole('button', { name: 'Edit scene', exact: true }).click()
   assert.deepEqual(await read(), dragged, 'walking must retain all model placements')
   await page.getByRole('button', { name: /Ingest/ }).click()
-  await page.getByRole('button', { name: 'Sandbox · multiple models' }).click()
+  await page.getByRole('button', { name: /^Sandbox/ }).click()
   await page.getByText('2 models · local scene', { exact: true }).waitFor()
   await page.getByLabel('Sandbox models').setInputFiles({ name: 'bad.glb', mimeType: 'application/octet-stream', buffer: Buffer.from('bad') })
   await page.getByRole('alert').waitFor()
