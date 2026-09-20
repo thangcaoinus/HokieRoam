@@ -108,7 +108,7 @@ export function manualMetrics(p: PlacementManifest, adjust?: Adjustment | null) 
  * server. `PlanEditor` renders this and nothing else.
  */
 export interface PlanModel {
-  /** Reference ring drawn in orange — the authoritative footprint the proxy is measured against.
+  /** Reference ring drawn in vermilion — the authoritative footprint the proxy is measured against.
    *  **Null on the free-import path**, where the outline is the object's own silhouette: there is
    *  nothing independent to score against, so the editor reports offset and yaw only. */
   target: V2[] | null

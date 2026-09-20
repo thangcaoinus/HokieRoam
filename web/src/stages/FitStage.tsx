@@ -137,7 +137,6 @@ function PreviewFitStage() {
 
   return (
     <div className="stage">
-      <div className="eyebrow">Stage 04 · Automated fitting & alignment</div>
       <div className="row wrap" style={{ justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
           <h1 className="h1">Snap it to the <em>map</em>.</h1>
@@ -171,7 +170,7 @@ function PreviewFitStage() {
             )}
             <div className="viewer-hud">
               <div className="glass row wrap" style={{ padding: '8px 12px', gap: 14 }}>
-                {([['footprint', 'Footprint', '#ff6b2c'], ['obb', 'Footprint OBB', '#5ee1ff'], ['aabb', 'Raw AABB', '#5ee1ff'], ['neighbors', 'Parcels', '#6d6963']] as const).map(([k, l, c]) => (
+                {([['footprint', 'Footprint', '#c2341d'], ['obb', 'Footprint OBB', '#2b5c8a'], ['aabb', 'Raw AABB', '#2b5c8a'], ['neighbors', 'Parcels', '#9b948a']] as const).map(([k, l, c]) => (
                   <label key={k} className="toggle">
                     <input type="checkbox" checked={layers[k]} onChange={(e) => setLayers({ ...layers, [k]: e.target.checked })} />
                     <i style={{ width: 10, height: 3, background: c, borderRadius: 2 }} />{l}
@@ -187,10 +186,10 @@ function PreviewFitStage() {
             <div className="row" style={{ gap: 18 }}>
               <div className="ring">
                 <svg width="108" height="108">
-                  <circle cx="54" cy="54" r="46" fill="none" stroke="rgba(255,255,255,.07)" strokeWidth="8" />
+                  <circle cx="54" cy="54" r="46" fill="none" stroke="#e4e0d8" strokeWidth="8" />
                   <circle cx="54" cy="54" r="46" fill="none" stroke="url(#rg)" strokeWidth="8" strokeLinecap="round"
                     strokeDasharray={circ} strokeDashoffset={circ * (1 - (reveal(3) && fit ? fit.iou : 0))} style={{ transition: 'stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1)' }} />
-                  <defs><linearGradient id="rg"><stop offset="0" stopColor="#ff6b2c" /><stop offset="1" stopColor="#ffb35c" /></linearGradient></defs>
+                  <defs><linearGradient id="rg"><stop offset="0" stopColor="#c2341d" /><stop offset="1" stopColor="#c2341d" /></linearGradient></defs>
                 </svg>
                 <div className="c"><div><b>{reveal(3) && fit ? (fit.iou * 100).toFixed(1) : '—'}</b><small>IOU %</small></div></div>
               </div>
@@ -204,7 +203,7 @@ function PreviewFitStage() {
           </div>
 
           <div className="card card-pad">
-            <div className="card-title"><span className="n">XZ</span> Footprint fit <span className="right legend"><span><i style={{ background: '#ff6b2c' }} />GIS</span><span><i style={{ background: '#7dffb2' }} />Mesh</span><span><i style={{ background: '#5ee1ff' }} />OBB</span></span></div>
+            <div className="card-title"><span className="n">XZ</span> Footprint fit <span className="right legend"><span><i style={{ background: '#c2341d' }} />GIS</span><span><i style={{ background: '#16181c' }} />Mesh</span><span><i style={{ background: '#2b5c8a' }} />OBB</span></span></div>
             {fit && reveal(3) && s.geo ? (
               <>
                 <FitPlot fit={fit} footprint={s.geo.footprint} neighbors={s.geo.neighbors} />

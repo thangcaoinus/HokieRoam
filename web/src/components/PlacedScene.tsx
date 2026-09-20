@@ -7,6 +7,7 @@ import type { PlacementManifest } from '../lib/api'
 import { sceneRing } from '../lib/api'
 import { adjustedMatrix, adjustedProxy } from '../lib/placement'
 import type { Adjustment } from '../store'
+import { SCENE } from '../lib/sceneTheme'
 
 /** Raw scene graph below one matrix node. Never also apply asset.normalization. */
 export function PlacedAsset({ asset, matrix }: { asset: MeshAsset; matrix: number[] }) {
@@ -28,18 +29,19 @@ export default function PlacedScene({ asset, placement, raw = false, adjust = nu
   // angle. ~17 deg above the horizon shows facades; the previous 28 deg looked down at roofs,
   // which hid the restyle once the model was scaled to its real 20 m height instead of 48 m.
   return <Canvas frameloop="demand" camera={{ position: [68, 34, 92], fov: 45 }} dpr={[1, 1.5]}>
-    <color attach="background" args={['#100e0d']} />
-    <hemisphereLight args={['#ffffff', '#66564c', 2]} />
-    <directionalLight position={[30, 70, 40]} intensity={2.5} />
+    <color attach="background" args={[SCENE.bg]} />
+    <hemisphereLight args={[SCENE.skyLight, SCENE.groundLight, 2.1]} />
+    <directionalLight position={[30, 70, 40]} intensity={1.9} color={SCENE.keyLight} />
+    <directionalLight position={[-45, 30, -55]} intensity={0.4} color={SCENE.fillLight} />
     <Bounds fit clip observe margin={1.08} key={`${raw}-${placement.asset_sha256}-${placement.selected.index}`}>
       <PlacedAsset asset={asset} matrix={raw ? new THREE.Matrix4().toArray() : adjustedMatrix(placement, adjust)} />
       {!raw && <>
-        <Line points={loop(footprint, 0.08)} color="#ff6b2c" lineWidth={3} />
-        {placement.request.footprint.holes.map((ring, i) => <Line key={i} points={loop(sceneRing(ring), 0.08)} color="#ff6b2c" lineWidth={3} />)}
-        <Line points={loop(proxy, 0.12)} color="#7dffb2" lineWidth={2} />
+        <Line points={loop(footprint, 0.08)} color={SCENE.footprint} lineWidth={3} />
+        {placement.request.footprint.holes.map((ring, i) => <Line key={i} points={loop(sceneRing(ring), 0.08)} color={SCENE.footprint} lineWidth={3} />)}
+        <Line points={loop(proxy, 0.12)} color={SCENE.proxy} lineWidth={2} />
       </>}
     </Bounds>
-    <Grid infiniteGrid fadeDistance={250} sectionSize={10} cellSize={1} cellColor="#342b25" sectionColor="#72523c" />
+    <Grid infiniteGrid fadeDistance={250} sectionSize={10} cellSize={1} cellColor={SCENE.gridCell} sectionColor={SCENE.gridSection} />
     <OrbitControls makeDefault />
   </Canvas>
 }

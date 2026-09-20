@@ -58,7 +58,6 @@ export default function ReconstructStage() {
 
   return (
     <div className="stage">
-      <div className="eyebrow">Stage 03 · 3D mesh generation</div>
       <h1 className="h1">From concept to <em>geometry</em>.</h1>
       <p className="lede">The restyled concept is lifted into a textured mesh through automated image-to-3D reconstruction. You can also bring your own <span className="mono">.glb</span> or <span className="mono">.obj</span>.</p>
       {job?.target_polycount != null && <p className="dimmer">This job requested {job.target_polycount.toLocaleString()} polygons. Change the target in Redesign for your next generation.</p>}
@@ -108,7 +107,7 @@ export default function ReconstructStage() {
                 <div className="stat hl"><div className="v">{meta.units}</div><div className="k">Source units{meta.simulated ? '' : ' (inferred)'}</div></div>
               </div>
               {raw && (
-                <div className="formula" style={{ marginTop: 12 }}>
+                <div className="formula wrap" style={{ marginTop: 12 }}>
                   raw extent <b>{raw.x.toFixed(meta.units === 'm' ? 2 : 0)} × {raw.y.toFixed(meta.units === 'm' ? 2 : 0)} × {raw.z.toFixed(meta.units === 'm' ? 2 : 0)}</b> {meta.units} — as delivered, before fitting
                 </div>
               )}
@@ -129,7 +128,7 @@ export default function ReconstructStage() {
                     ))}
                   </div>
                   <span style={{ flex: 1 }} />
-                  <span className="chip" style={{ background: 'rgba(8,8,10,.7)' }}>Preview · auto-oriented</span>
+                  <span className="chip">Preview · auto-oriented</span>
                 </div>
                 {!s.mesh && step < 0 && !(api && (jobActive || modelPending)) && (
                   <div className="map-empty"><div><div style={{ fontFamily: 'var(--display)', fontSize: 16, color: 'var(--text-2)' }}>No mesh yet</div><div style={{ fontSize: 12.5 }}>{api ? 'The pipeline job delivers it here when reconstruction finishes' : 'Run the simulated build, or upload a mesh'}</div></div></div>
@@ -138,7 +137,7 @@ export default function ReconstructStage() {
                 {api && (jobActive || modelPending) && !s.mesh && (
                   <div className="progress-overlay">
                     <div className="progress-box">
-                      <div className="eyebrow">{job!.provider} · {modelPending ? 'download' : job!.stage}</div>
+                      <div className="field-label">{job!.provider} · {modelPending ? 'download' : job!.stage}</div>
                       <div style={{ font: '600 16px var(--display)', margin: '10px 0 2px' }}>
                         {modelPending ? 'Loading the GLB from the server' : job!.stage === 'redesign' ? 'Waiting for the concept first' : 'Reconstructing the mesh'}
                       </div>

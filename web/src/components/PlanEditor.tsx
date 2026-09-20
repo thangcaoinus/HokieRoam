@@ -65,24 +65,36 @@ export default function PlanEditor({ plan, adjust, onChange }: {
     <svg width="100%" viewBox={`0 0 ${W} ${H}`} role="img"
       aria-label="Top-down manual placement editor"
       style={{ touchAction: 'none', cursor: drag.current ? 'grabbing' : hover ? 'grab' : 'default',
-        background: '#100e0d', borderRadius: 10, display: 'block' }}
+        background: '#fbfaf7', border: '1px solid #b3ada1', borderRadius: 2, display: 'block' }}
       onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}
       onPointerEnter={() => setHover(true)} onPointerOut={() => setHover(false)}>
       <defs>
         <pattern id="pe-grid" width={10 * view.k} height={10 * view.k} patternUnits="userSpaceOnUse">
-          <path d={`M ${10 * view.k} 0 L 0 0 0 ${10 * view.k}`} fill="none" stroke="#2a2320" strokeWidth="1" />
+          <path d={`M ${10 * view.k} 0 L 0 0 0 ${10 * view.k}`} fill="none" stroke="#dcd8d0" strokeWidth="1" />
         </pattern>
       </defs>
       <rect width={W} height={H} fill="url(#pe-grid)" />
       {/* where the solver put it, kept visible so the manual move is always legible as a delta */}
-      <polygon points={path(computed)} fill="none" stroke="#4a5f52" strokeWidth="1.5" strokeDasharray="5 4" />
-      {target && <polygon points={path(target)} fill="rgba(255,107,44,.10)" stroke="#ff6b2c" strokeWidth="2.5" />}
-      <polygon points={path(moved)} fill="rgba(125,255,178,.16)" stroke="#7dffb2" strokeWidth="2.5" />
+      <polygon points={path(computed)} fill="none" stroke="#9b948a" strokeWidth="1.5" strokeDasharray="5 4" />
+      {target && <polygon points={path(target)} fill="rgba(194,52,29,.10)" stroke="#c2341d" strokeWidth="2.5" />}
+      <polygon points={path(moved)} fill="rgba(22,24,28,.09)" stroke="#16181c" strokeWidth="2.5" />
       <circle cx={W / 2 + (pivot.x - view.cx) * view.k} cy={H / 2 + (pivot.z - view.cz) * view.k}
-        r="3.5" fill="#ff6b2c" />
-      <text x="12" y="22" fill="#8d8279" fontSize="11">drag to move · shift-drag to rotate · grid 10 m</text>
-      {plan.legend.target && <text x="12" y={H - 26} fill="#ff6b2c" fontSize="11">orange: {plan.legend.target}</text>}
-      <text x="12" y={H - 12} fill="#7dffb2" fontSize="11">green: {plan.legend.proxy} · dashed: computed placement</text>
+        r="3.5" fill="#c2341d" />
+      <text x="12" y="21" fill="#656a71" fontSize="11" fontWeight="500">drag to move · shift-drag to rotate · grid 10 m</text>
+      {/* A drawn key, so the legend cannot contradict the linework the way a colour name can. */}
+      <g fontSize="11" fontWeight="500" fill="#4a4f56">
+        {plan.legend.target && <>
+          <line x1="12" x2="30" y1={H - 30} y2={H - 30} stroke="#c2341d" strokeWidth="2.5" />
+          <text x="36" y={H - 26}>{plan.legend.target}</text>
+        </>}
+        <line x1="12" x2="30" y1={H - 16} y2={H - 16} stroke="#16181c" strokeWidth="2.5" />
+        <text x="36" y={H - 12}>{plan.legend.proxy}</text>
+        <line x1="12" x2="30" y1={H - 16} y2={H - 16} stroke="none" />
+        <g transform={`translate(${plan.legend.proxy.length * 6.2 + 52}, 0)`}>
+          <line x1="12" x2="30" y1={H - 16} y2={H - 16} stroke="#9b948a" strokeWidth="1.5" strokeDasharray="5 4" />
+          <text x="36" y={H - 12}>computed placement</text>
+        </g>
+      </g>
     </svg>
 
     <div className="stats" style={{ marginTop: 14 }}>

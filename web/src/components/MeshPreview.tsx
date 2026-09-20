@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { ContactShadows, Grid, OrbitControls } from '@react-three/drei'
+import { Bounds, ContactShadows, Grid, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 import type { MeshAsset } from '../lib/reconstruct'
+import { SCENE } from '../lib/sceneTheme'
 
 export type ShadeMode = 'shaded' | 'wire' | 'clay'
 
@@ -29,8 +30,8 @@ function Model({ asset, mode }: { asset: MeshAsset; mode: ShadeMode }) {
 
   useEffect(() => {
     t0.current = performance.now()
-    const clay = new THREE.MeshStandardMaterial({ color: '#d9d2c6', roughness: 0.75, clippingPlanes: [plane] })
-    const wire = new THREE.MeshBasicMaterial({ color: '#5ee1ff', wireframe: true, transparent: true, opacity: 0.55, clippingPlanes: [plane] })
+    const clay = new THREE.MeshStandardMaterial({ color: '#e0dbd2', roughness: 0.8, clippingPlanes: [plane] })
+    const wire = new THREE.MeshBasicMaterial({ color: SCENE.reference, wireframe: true, transparent: true, opacity: 0.5, clippingPlanes: [plane] })
     object.traverse((c) => {
       const m = c as THREE.Mesh
       if (!m.isMesh) return
@@ -57,7 +58,7 @@ function Model({ asset, mode }: { asset: MeshAsset; mode: ShadeMode }) {
       <primitive object={object} />
       <mesh ref={ring} rotation-x={-Math.PI / 2}>
         <ringGeometry args={[radius * 1.05, radius * 1.12, 96]} />
-        <meshBasicMaterial color="#ff6b2c" transparent opacity={0.85} side={THREE.DoubleSide} />
+        <meshBasicMaterial color={SCENE.footprint} transparent opacity={0.9} side={THREE.DoubleSide} />
       </mesh>
     </>
   )
@@ -66,14 +67,18 @@ function Model({ asset, mode }: { asset: MeshAsset; mode: ShadeMode }) {
 export default function MeshPreview({ asset, mode }: { asset: MeshAsset | null; mode: ShadeMode }) {
   return (
     <Canvas shadows camera={{ position: [52, 34, 58], fov: 38 }} gl={{ localClippingEnabled: true, antialias: true }} dpr={[1, 2]}>
-      <color attach="background" args={['#0b0a0a']} />
-      <fog attach="fog" args={['#0b0a0a', 90, 220]} />
-      <hemisphereLight args={['#ffe2c4', '#1a1210', 0.7]} />
-      <directionalLight position={[40, 60, 25]} intensity={2.2} color="#ffd2a6" castShadow shadow-mapSize={[2048, 2048]} shadow-camera-left={-50} shadow-camera-right={50} shadow-camera-top={50} shadow-camera-bottom={-50} />
-      <directionalLight position={[-30, 20, -40]} intensity={0.6} color="#6fb7ff" />
-      {asset && <Model asset={asset} mode={mode} />}
-      <Grid args={[200, 200]} cellSize={2} cellThickness={0.6} cellColor="#2a2522" sectionSize={10} sectionThickness={1} sectionColor="#4a3326" fadeDistance={160} fadeStrength={1.5} infiniteGrid />
-      <ContactShadows position={[0, 0.01, 0]} opacity={0.6} scale={120} blur={2.4} far={40} />
+      <color attach="background" args={[SCENE.bg]} />
+      <fog attach="fog" args={[SCENE.bg, 110, 240]} />
+      <hemisphereLight args={[SCENE.skyLight, SCENE.groundLight, 1.8]} />
+      <directionalLight position={[40, 60, 25]} intensity={1.8} color={SCENE.keyLight} castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0008} shadow-camera-left={-50} shadow-camera-right={50} shadow-camera-top={50} shadow-camera-bottom={-50} />
+      <directionalLight position={[-30, 20, -40]} intensity={0.5} color={SCENE.fillLight} />
+      {/* Frame the model from its own bounds: a fixed camera distance turns any asset that is
+          not roughly building-sized into a speck on the grid. */}
+      {asset && <Bounds fit clip observe margin={1.5} key={asset.meta.sha256}>
+        <Model asset={asset} mode={mode} />
+      </Bounds>}
+      <Grid args={[200, 200]} cellSize={2} cellThickness={0.6} cellColor={SCENE.gridCell} sectionSize={10} sectionThickness={1} sectionColor={SCENE.gridSection} fadeDistance={160} fadeStrength={1.5} infiniteGrid />
+      <ContactShadows position={[0, 0.01, 0]} opacity={0.42} scale={120} blur={2.4} far={40} />
       <OrbitControls makeDefault autoRotate autoRotateSpeed={0.6} maxPolarAngle={Math.PI / 2.05} target={[0, 9, 0]} enableDamping />
     </Canvas>
   )

@@ -13,6 +13,22 @@ export const examplePath = (id: ExampleId) => `${import.meta.env.BASE_URL}exampl
 /** Kept for callers that only need the default example's artifacts. */
 export const EXAMPLE_PATH = examplePath(DEFAULT_EXAMPLE)
 
+/**
+ * What the Ingest entry point shows before anything is fetched: the building's name and the
+ * filename of its first source photograph. Typed as a total Record, so adding an example id
+ * fails the build until its poster is declared rather than rendering a broken image.
+ *
+ * These duplicate `title` and `photos[0]` in each example.json on purpose — the entry point
+ * renders before that file is read. Switching the default example means updating the row here
+ * too; the DDS→Burruss switch did not, and shipped a broken <img> and the wrong building's name.
+ */
+export const EXAMPLE_POSTERS: Record<ExampleId, { title: string; photo: string }> = {
+  burruss: { title: 'Burruss Hall', photo: 'source.jpg' },
+  dds: { title: 'the Data and Decision Sciences Building', photo: 'source.png' },
+}
+export const EXAMPLE_TITLE = EXAMPLE_POSTERS[DEFAULT_EXAMPLE].title
+export const EXAMPLE_SOURCE = EXAMPLE_POSTERS[DEFAULT_EXAMPLE].photo
+
 interface Example {
   id: string; title: string; address: string; prompt: string; presetId: string; provider: string
   /** Artifact filenames, so a four-view example is not assumed to be a single PNG. */

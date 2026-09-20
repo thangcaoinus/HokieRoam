@@ -4,7 +4,7 @@ import { useStore } from '../store'
 import { registerBucket, resolveAddress } from '../lib/geo'
 import { samplePhoto } from '../lib/redesign'
 import MapView from '../components/MapView'
-import { EXAMPLE_PATH, loadCompletedExample } from '../lib/cachedExample'
+import { EXAMPLE_PATH, EXAMPLE_SOURCE, EXAMPLE_TITLE, loadCompletedExample } from '../lib/cachedExample'
 import { MAX_VIEWS } from '../lib/api'
 
 const SUGGESTIONS = ['Newman Library, Blacksburg, VA', 'Burruss Hall, Blacksburg, VA', 'Flatiron Building, New York', 'Nebraska State Capitol, Lincoln']
@@ -53,27 +53,34 @@ export default function IngestStage() {
 
   return (
     <div className="stage">
-      <div className="eyebrow">Stage 01 · Ingestion & spatial resolution</div>
       <h1 className="h1">Start from a <em>real place</em>.</h1>
       <p className="lede">Reimagine a familiar place with building photos and a style prompt. We look up its OpenStreetMap footprint so you can inspect the design at its real location.</p>
 
-      <div className="card card-pad row wrap" style={{ marginBottom: 24, gap: 22 }}>
-        <img src={`${EXAMPLE_PATH}/source.png`} alt="Data and Decision Sciences Building at Virginia Tech" style={{ width: 180, height: 105, objectFit: 'cover', borderRadius: 10 }} />
-        <div style={{ flex: 1, minWidth: 240 }}>
-          <div className="eyebrow">Try a completed real example</div>
-          <h2 style={{ fontSize: 20, margin: '8px 0' }}>Walk around a Virginia Tech building</h2>
-          <p className="dimmer" style={{ margin: '0 0 12px' }}>Cached Meshy generation · about 60k triangles · placement needs review. Opens without generation or geographic lookup.</p>
+      {/* Three ways in that skip the pipeline. Ruled siblings under one border, so they read as
+          alternatives to each other rather than as three separate propositions of equal weight. */}
+      <div className="entries">
+        <div className="entry lead">
+          {/* Filename and caption come from the example's own manifest: hardcoding them is how the
+              DDS→Burruss switch left a broken image and the wrong building's name on screen. */}
+          <img src={`${EXAMPLE_PATH}/${EXAMPLE_SOURCE}`} alt={`${EXAMPLE_TITLE} — source photograph`} />
+          <div className="entry-body">
+            <h3>Walk around {EXAMPLE_TITLE}</h3>
+            <p>Cached Meshy generation · about 60k triangles · placement needs review. Opens without generation or geographic lookup.</p>
+          </div>
           <button className="btn primary" disabled={exampleBusy || bundleBusy} onClick={async () => {
             setExampleBusy(true); setError('')
             try { await loadCompletedExample() } catch (e) { setError((e as Error).message) }
             finally { setExampleBusy(false) }
-          }}>{exampleBusy ? 'Loading completed example…' : 'Load completed real example'}</button>
+          }}>{exampleBusy ? 'Loading…' : 'Load completed real example'}</button>
         </div>
-      </div>
-      <div className="card card-pad" style={{ marginBottom: 24 }}>
-        <div className="card-title">Reopen a saved design</div>
-        <p className="dimmer">Open a Groundtruth ZIP exported after placement. Your model, photos, prompt and saved placement stay on this device. No generation or geographic lookup.</p>
-        <button className="btn" disabled={bundleBusy || exampleBusy} onClick={() => bundleRef.current?.click()}>{bundleBusy ? 'Checking saved design…' : 'Open saved ZIP'}</button>
+
+        <div className="entry">
+          <div className="entry-body">
+            <h3>Reopen a saved design</h3>
+            <p>Open a Groundtruth ZIP exported after placement. Your model, photos, prompt and saved placement stay on this device. No generation or geographic lookup.</p>
+          </div>
+          <button className="btn" disabled={bundleBusy || exampleBusy} onClick={() => bundleRef.current?.click()}>{bundleBusy ? 'Checking…' : 'Open saved ZIP'}</button>
+        </div>
         <input ref={bundleRef} aria-label="Saved Groundtruth ZIP" type="file" accept=".zip,application/zip" hidden onChange={async (e) => {
           const file = e.target.files?.[0]; e.target.value = ''
           if (!file) return
@@ -82,19 +89,20 @@ export default function IngestStage() {
           catch (err) { setError((err as Error).message) }
           finally { setBundleBusy(false) }
         }} />
-      </div>
-      <div className="card card-pad" style={{ marginBottom: 24 }}>
-        <div className="card-title">Already have a model?</div>
-        <p className="dimmer">
-          Import a <b>.glb</b> or <b>.obj</b> and skip the address. We measure its real dimensions, derive its
-          footprint from its own top-down silhouette, normalise units and axes and ground it — then you place it
-          and export the transform. No generation, no geographic lookup.
-          <br />
-          <b>No authoritative footprint is involved, so this path reports no overlap score and no placement verdict.</b>
-        </p>
-        <button className="btn" disabled={objectBusy || bundleBusy || exampleBusy} onClick={() => objectRef.current?.click()}>
-          {objectBusy ? 'Measuring your object…' : 'Import your own model'}
-        </button>
+
+        <div className="entry">
+          <div className="entry-body">
+            <h3>Already have a model?</h3>
+            <p>
+              Import a <b>.glb</b> or <b>.obj</b> and skip the address. We measure its real dimensions, derive its
+              footprint from its own top-down silhouette, normalise units and axes and ground it — then you place it
+              and export the transform. No generation, no geographic lookup.
+              {' '}<b>No authoritative footprint is involved, so this path reports no overlap score and no placement verdict.</b>
+            </p>
+          </div>
+          <button className="btn" disabled={objectBusy || bundleBusy || exampleBusy} onClick={() => objectRef.current?.click()}>
+            {objectBusy ? 'Measuring…' : 'Import your own model'}
+          </button>
         <input ref={objectRef} aria-label="Your own 3D model" type="file" accept=".glb,.obj,model/gltf-binary" hidden onChange={async (e) => {
           const file = e.target.files?.[0]; e.target.value = ''
           if (!file) return
@@ -111,6 +119,7 @@ export default function IngestStage() {
           } catch (err) { setError((err as Error).message) }
           finally { setObjectBusy(false) }
         }} />
+        </div>
       </div>
       {error && <div role="alert" className="err-text" style={{ marginBottom: 16 }}>{error}</div>}
       {s.jobError && <div role="alert" className="err-text">{s.jobError}</div>}
@@ -124,7 +133,7 @@ export default function IngestStage() {
                 <MapPin size={17} />
                 <input className="input" placeholder="e.g. 560 Drillfield Dr, Blacksburg, VA" value={s.address} onChange={(e) => s.set({ address: e.target.value })} />
               </div>
-              <button className="btn primary" style={{ height: 48 }} disabled={busy || !s.address.trim()}>
+              <button className="btn primary" style={{ height: 38 }} disabled={busy || !s.address.trim()}>
                 {busy ? <Loader2 size={16} className="spin" style={{ animation: 'spin 1s linear infinite' }} /> : 'Resolve'}
               </button>
             </form>
@@ -132,9 +141,9 @@ export default function IngestStage() {
               {SUGGESTIONS.map((q) => <button key={q} onClick={() => resolve(q)} disabled={busy}>{q}</button>)}
             </div>
             {s.geo && (
-              <div style={{ marginTop: 16, padding: 12, borderRadius: 12, background: 'rgba(125,255,178,.05)', border: '1px solid rgba(125,255,178,.2)', fontSize: 12.5 }}>
-                <div style={{ color: s.geo.source === 'osm' ? 'var(--ok)' : 'var(--warn)', fontWeight: 600, marginBottom: 2 }}>{s.geo.source === 'osm' ? 'OpenStreetMap footprint' : 'Synthetic demo footprint — real geometry unavailable'}</div>
-                <div className="dim">{s.geo.displayName}</div>
+              <div className={`note ${s.geo.source === 'osm' ? 'ok' : 'warn'}`} style={{ marginTop: 14 }}>
+                <b>{s.geo.source === 'osm' ? 'OpenStreetMap footprint' : 'Synthetic demo footprint — real geometry unavailable'}</b>
+                <div>{s.geo.displayName}</div>
               </div>
             )}
           </div>
