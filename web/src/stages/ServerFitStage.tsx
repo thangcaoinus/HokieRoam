@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { NO_ADJUST, isAdjusted, useStore } from '../store'
 import { exportUrl, getJob, requestFit } from '../lib/api'
-import { fitRequest, placementMatches } from '../lib/placement'
+import { fitRequest, manifestPlan, placementMatches } from '../lib/placement'
 import PlacedScene from '../components/PlacedScene'
 import MatrixView from '../components/MatrixView'
 import PlanEditor from '../components/PlanEditor'
@@ -18,6 +18,8 @@ export default function ServerFitStage() {
   const mounted = useRef(true)
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
   const p = s.placement
+  // Stable across the re-renders a drag causes, so PlanEditor's own memos still hold.
+  const plan = useMemo(() => p && manifestPlan(p), [p])
   const mesh = s.mesh!, geo = s.geo!
   const cached = !!mesh.meta.exampleId || !!mesh.meta.bundle
 
@@ -104,7 +106,7 @@ export default function ServerFitStage() {
           </div>
         </div>
         {review && <div style={{ marginTop: 14 }}>
-          <PlanEditor placement={p} adjust={s.adjust ?? NO_ADJUST}
+          <PlanEditor plan={plan!} adjust={s.adjust ?? NO_ADJUST}
             onChange={(a) => s.set({ adjust: a })} />
         </div>}
       </div>

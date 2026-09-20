@@ -15,8 +15,11 @@ export interface Candidate {
 }
 
 export interface FitResult {
-  /** Browser output is an offline preview; server PlacementManifest is authoritative. */
-  authority: 'preview-only'
+  /** Browser output is an offline preview; server PlacementManifest is authoritative.
+   *  'derived-site' is the free-import path (`deriveSite.ts`): there is no authoritative
+   *  footprint for it to be authoritative *about*, so what it carries is a grounding transform
+   *  and a measured outline, never a fit score or a verdict. */
+  authority: 'preview-only' | 'derived-site'
   matrices: { N: number[]; Ralign: number[]; Tground: number[]; S: number[]; Ry: number[]; Ttarget: number[]; M: number[] }
   rawAABB: { min: THREE.Vector3Tuple; max: THREE.Vector3Tuple }
   groundedAABB: { min: THREE.Vector3Tuple; max: THREE.Vector3Tuple }
@@ -117,7 +120,7 @@ export function clipPolygon(subject: V2[], clip: V2[]): V2[] {
   return out
 }
 
-function signedArea(p: V2[]) {
+export function signedArea(p: V2[]) {
   let a = 0
   for (let i = 0; i < p.length; i++) {
     const q = p[(i + 1) % p.length]
@@ -133,13 +136,17 @@ export function iou(poly: V2[], convex: V2[]) {
 }
 
 // ---------- mesh sampling ----------
+/** Accumulated transform taking `node`'s local coordinates into `root`'s own frame — root's
+ *  transform included, its ancestors deliberately excluded, so the result is independent of
+ *  wherever the asset happens to be parented in a scene. */
+export function toRootMatrix(root: THREE.Object3D, node: THREE.Object3D): THREE.Matrix4 {
+  const m = new THREE.Matrix4()
+  for (let n: THREE.Object3D | null = node; n && n !== root.parent; n = n.parent) { n.updateMatrix(); m.premultiply(n.matrix) }
+  return m
+}
+
 /** Vertices in the root's own frame (root transform included, ancestors ignored). */
 export function sampleVertices(root: THREE.Object3D, max = 150_000): THREE.Vector3[] {
-  const toRoot = (o: THREE.Object3D) => {
-    const m = new THREE.Matrix4()
-    for (let n: THREE.Object3D | null = o; n && n !== root.parent; n = n.parent) { n.updateMatrix(); m.premultiply(n.matrix) }
-    return m
-  }
   const out: THREE.Vector3[] = []
   let total = 0
   root.traverse((o) => {
@@ -152,7 +159,7 @@ export function sampleVertices(root: THREE.Object3D, max = 150_000): THREE.Vecto
     if (!m.isMesh) return
     const pos = (m.geometry as THREE.BufferGeometry).attributes.position
     if (!pos) return
-    const mw = toRoot(m)
+    const mw = toRootMatrix(root, m)
     for (let i = 0; i < pos.count; i += step) out.push(new THREE.Vector3().fromBufferAttribute(pos, i).applyMatrix4(mw))
   })
   return out

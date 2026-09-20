@@ -40,7 +40,9 @@ export default function App() {
           <div className="spacer" />
           {s.geo && (
             <span className="chip mono" title={s.geo.displayName}>
-              {s.geo.lat.toFixed(5)}°, {s.geo.lon.toFixed(5)}°
+              {/* A derived site has no coordinates. Printing 0.00000°, 0.00000° would assert
+                  Null Island as a location rather than admit there is none. */}
+              {s.geo.source === 'derived' ? 'local frame · no anchor' : `${s.geo.lat.toFixed(5)}°, ${s.geo.lon.toFixed(5)}°`}
             </span>
           )}
           {s.geo && <span className="chip mono">bucket · {s.geo.bucket}</span>}
@@ -72,12 +74,15 @@ export default function App() {
           </ol>
           {(s.geo || s.mesh || s.fit || s.placement) && (
             <div className="rail-summary">
-              {s.geo && <div className="kv"><span>Footprint</span><span>{s.geo.areaM2.toFixed(0)} m² · {s.geo.source === 'osm' ? s.geo.osmId : 'demo'}</span></div>}
+              {s.geo && <div className="kv"><span>Footprint</span><span>{s.geo.areaM2.toFixed(0)} m² · {s.geo.source === 'osm' ? s.geo.osmId : s.geo.source === 'derived' ? 'derived from model' : 'demo'}</span></div>}
               {s.mesh && <div className="kv"><span>Mesh</span><span>{(s.mesh.meta.triangles / 1000).toFixed(1)}k tris</span></div>}
               {s.placement && <div className="kv"><span>Placement</span><span>{s.placement.plan_fit}</span></div>}
               {s.placement && <div className="kv"><span>IoU</span><span>{(s.placement.selected.metrics.iou * 100).toFixed(1)}%</span></div>}
-              {s.fit && <div className="kv"><span>IoU</span><span>{(s.fit.iou * 100).toFixed(1)}%</span></div>}
-              {s.fit && <div className="kv"><span>Yaw</span><span>{s.fit.yawDeg.toFixed(2)}°</span></div>}
+              {/* Never for a derived site: its FitResult carries iou = 1 as a structural
+                  placeholder because nothing was measured, not as a perfect score. */}
+              {s.fit && s.geo?.source !== 'derived' && <div className="kv"><span>IoU</span><span>{(s.fit.iou * 100).toFixed(1)}%</span></div>}
+              {s.fit && s.geo?.source !== 'derived' && <div className="kv"><span>Yaw</span><span>{s.fit.yawDeg.toFixed(2)}°</span></div>}
+              {s.fit && s.geo?.source === 'derived' && <div className="kv"><span>Site</span><span>derived · not scored</span></div>}
             </div>
           )}
           <Console />

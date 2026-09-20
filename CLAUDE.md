@@ -88,7 +88,7 @@ authoritative path for API assets.
 
 | Area | State |
 | --- | --- |
-| `web/` | Complete 5-stage UI plus three no-backend entry points: **Load completed real example** (`/?example=burruss`, static artifacts in `web/public/examples/burruss/`; `/?example=dds` still serves the rejection example), **Open saved ZIP** (re-opens an export into Explore, hash-checked, retained byte-for-byte for re-export), and the labelled local simulation when `VITE_API_BASE` is unset. `npm run build` passes — observed 2026-09-19; the >500 kB main-chunk warning is known and accepted. |
+| `web/` | Complete 5-stage UI plus **four** no-backend entry points: **Import your own model** (`.glb`/`.obj`, no address — the derived-site path, see *Free import* below), **Load completed real example** (`/?example=burruss`, static artifacts in `web/public/examples/burruss/`; `/?example=dds` still serves the rejection example), **Open saved ZIP** (re-opens an export into Explore, hash-checked, retained byte-for-byte for re-export), and the labelled local simulation when `VITE_API_BASE` is unset. `npm run build` passes — observed 2026-09-19; the >500 kB main-chunk warning is known and accepted. |
 | `server/` | **Working pipeline service.** `app/main.py` (assembly + lifespan), `routes.py` (all 7 `/v1` handlers), `pipeline.py` (orchestration). Drives a fixture job end to end: 1–4 photos → concepts → GLB → fit → export bundle. **`.venv/bin/python -m pytest` → 76 passed** (`test_fit.py`, `test_fit_generality.py`, `test_meshy.py`, `test_job_options.py`), observed 2026-09-19. **`ruff check app` is CLEAN** — the 3 × E501 from the `target_polycount` plumbing were fixed 2026-09-19. (`ruff check tests` still reports 2 × E501 in `test_job_options.py`; `tests/` is outside the documented gate.) |
 | Integration | **Wired, including the fit.** With `VITE_API_BASE` set, Redesign starts one `pipeline` job via `lib/pipelineJob.ts`, Reconstruct follows the same job and loads its GLB, and a reload re-attaches from localStorage. `FitStage.tsx` is now a dispatcher — `serverMesh ? <ServerFitStage/> : <PreviewFitStage/>` (`FitStage.tsx:68`) — so a server mesh goes through `requestFit` and the server's `PlacementManifest`, and the browser `solveFit` only runs for simulation and manual imports. The same matrix drives Fit, Explore, export and refresh; changing mesh or footprint invalidates a stale placement. **The P3 gap recorded in older notes is closed.** |
 | Assets | `samples/` (P4): DDS building photo, OSM way 1174211880 footprint, and a **fixture-generated** concept/model/manifest — labelled synthetic. **Real paid Meshy generations have now run** (2026-09-19): `samples/burruss-medieval-4view/` is the best asset — 4 photos → 4 `image-to-image` calls → **one** `multi-image-to-3d` call, 59k faces with a real footprint and depth (job `41db2b5c…`); `samples/burruss-medieval/` is the same prompt from 1 view (job `97b27cfe…`), kept as the single-view-is-a-flat-facade comparison; `samples/burruss-green-scape/` is a 4-view run that **stalled at `redesign_3`** — resumable by request key, never resubmit. Twelve submissions are recorded in `server/.data/jobs.sqlite3`; the ledger never resets, and `PIPELINE_MAX_SUBMISSIONS` in `server/.env` was raised 6 → **100** on 2026-09-19 because 12 ≥ 6 was failing every new paid job at reserve time (`server/.env.example` still ships the conservative 12). Note a 4-view job costs **5** slots: one `image-to-image` per view plus one `multi-image-to-3d`. |
@@ -128,9 +128,11 @@ No linter and no unit-test runner are configured. `npm run build` is the standin
 
 Browser checks live in `web/scripts/` and drive a real page with **Playwright + Chromium**. Playwright
 is **not** a repo dependency: install it out of tree and point `PLAYWRIGHT_MODULE` at it. What worked
-here on 2026-09-19 was `npm install --no-save playwright-core` plus
+here on 2026-09-19 and again on 2026-09-20 was `npm install --no-save playwright-core` plus
 `npx playwright-core install chromium-headless-shell` (the cached build must match the module's
-expected revision), then:
+expected revision — on 2026-09-20 the cache held **1194** and a freshly installed `playwright-core`
+wanted **1243**, which fails at launch with "Executable doesn't exist" until the install command is
+re-run), then:
 
 ```bash
 npm run build && npx vite preview --port 5175 --strictPort &
@@ -140,8 +142,11 @@ PLAYWRIGHT_MODULE=playwright-core CHECK_WEB=http://localhost:5175 node scripts/c
 `check-example.mjs` and `check-bundle.mjs` take `CHECK_EXAMPLE` (default `burruss`) and assert against
 the shipped `example.json` rather than memorised strings, so they follow the example instead of pinning
 one building. **Build with `VITE_API_BASE` unset** (move `web/.env.local` aside) or `check-example.mjs`
-fails its "no API requests" assertion on the header's health probe. They are end-to-end proofs, not unit
-tests, and none of them submits a provider job:
+fails its "no API requests" assertion on the header's health probe. **`check-polycount.mjs` needs the
+opposite build** — the target-polygons control only renders when `apiConfigured()` is true, so with the
+API base unset it times out waiting for the control rather than failing an assertion. Build it with
+`VITE_API_BASE=http://localhost:8000 npm run build`; it mocks every API call, so no server is needed and
+no job is submitted. They are end-to-end proofs, not unit tests, and none of them submits a provider job:
 
 ```bash
 node scripts/prepare-example.mjs          # rebuild web/public/examples/burruss (the demo example)
@@ -152,6 +157,16 @@ node scripts/check-bundle.mjs      # saved-ZIP import, re-export byte-identical,
 node scripts/check-polycount.mjs   # target_polycount UI → request identity, with all API calls intercepted
 node scripts/check-ingest-live.mjs # NETWORK: real Nominatim + Overpass → real footprint → photo → Redesign
 node scripts/check-manual-placement.mjs # drag-to-place changes live IoU, stays labelled manual, resets exactly
+node scripts/check-free-import.mjs # free import: no address, no API, no GIS, no IoU and no verdict on screen
+```
+
+`check-derive-site.ts` is not a browser check — it is a headless geometry check for
+`lib/deriveSite`, run through esbuild (already a vite dependency), and it exists because the
+`fillVoids` bug below is invisible to a browser test:
+
+```bash
+node_modules/.bin/esbuild scripts/check-derive-site.ts --bundle --platform=node \
+  --format=esm --outfile=/tmp/check-derive-site.mjs && node /tmp/check-derive-site.mjs
 ```
 
 Headless Chromium with software rendering: these prove plumbing, **not** demo-laptop frame rate.
@@ -338,6 +353,71 @@ the computed verdict, the metrics panel and the export keep describing the serve
 `manual-placement` banner says so on screen. `store.ts` drops the correction whenever the placement
 it was expressed against is replaced or invalidated, since a delta against a different transform is
 meaningless.
+
+**Free import — complete 2026-09-20 (all four slices of `plan.md`).** A fourth no-backend entry
+on Ingest, **Import your own model** (`.glb`/`.obj`), skips the address entirely:
+`loadMeshFile` → `deriveSite` → `SandboxFitStage` → Explore → export. `FitStage` tests
+`geo.source === 'derived'` **before** the server-mesh test, so a derived site can never reach
+either scoring engine. `components/DerivedScene.tsx` is its orbit view, because `PlacedScene`
+reads a `PlacementManifest` and there is none. Explore shares its toolbar with this path rather
+than dropping into a bare walk view. `store.declaredHeightM` and `store.derived` carry the
+declared size and the provenance metadata; both are cleared whenever mesh or geo changes.
+
+*Four dishonest readouts were found only by wiring it up and looking*, each now suppressed for
+`source === 'derived'`: the rail printed **IoU 100.0 %** from the derived `FitResult`'s structural
+`iou: 1`; the header printed **0.00000°, 0.00000°**; `MapView` **fetched OSM basemap tiles for
+Null Island**; and Explore offered "Source photo and prompt" showing the untouched default preset.
+The lesson generalises — a placeholder value in a shared struct becomes a claim the moment a
+generic component renders it.
+
+*Scale is the one place the original plan was wrong, and the fix matters.* The plan assumed an
+imported file carries its real-world size. It usually does not: the Burruss GLB is normalised to
+a unit box (raw bbox **1.898 × 0.973 × 1.281**, no node scale), which is what image-to-3D
+generators emit, so free import measured a **1.9 m** building. The scored path never meets this
+because it scales to the authoritative footprint; this path has nothing to scale to. So the size
+is **asked for rather than invented**: an optional declared real height, applied **uniformly**
+(deck p.58 prefers proportion-preserving scaling), labelled `user-declared` in the UI and the
+export and **never** called measured, with `as-authored` the default and an explicit warning when
+a file looks unit-normalised. `S` is composed **last** (`S · T_ground · N`) so scaling about the
+origin cannot un-ground the base. Declaring 48.4 m for Burruss yields **94.4 × 63.7 m** in plan —
+its real dimensions as recorded above, an independent confirmation that the scaling is correct.
+
+Checks: `check-free-import.mjs` (below) and `check-derive-site.ts`. **Do not let any scoring
+vocabulary — IoU, coverage, spill, accepted/review/rejected — or a latitude and longitude appear
+on this path**; `check-free-import.mjs` asserts their absence at three points and is the guard.
+
+**Slice 1 detail (the derivation itself).**
+`lib/deriveSite.ts` derives a site from an imported object instead of an address: every triangle
+is projected to plan, rasterised (edges stamped explicitly — walls project to slivers), interior
+voids flooded solid, the occupied/empty boundary traced into loops, the largest kept and
+simplified with Ramer-Douglas-Peucker at ~1 cell. It returns a `GeoResult` with `source:
+'derived'` and a `FitResult` with `authority: 'derived-site'` whose matrix is
+`S · T_ground · N` — **no rotation search, no lat/lon, no IoU and no verdict**, and `S` is
+identity unless a real height was declared (see above), because the outline *is* the object's own
+silhouette and scoring against it would be a tautology. This is
+deliberately the opposite choice from the scored path, where a more faithful concave proxy
+measured *worse*; that result is about matching a mesh to a footprint it does not share.
+Supporting changes: `fit.ts` exports `signedArea` / `toRootMatrix` and widens `authority` to
+`'preview-only' | 'derived-site'`; `geo.ts` widens `source` to `'osm' | 'demo' | 'derived'`;
+`placement.ts` splits the manifest-bound nudge into `nudgeMatrix` / `nudgeRing` / `planMetrics` /
+`ringCentroid` and exports a `PlanModel` + `manifestPlan()`; **`PlanEditor` now takes a
+`PlanModel`, not a `PlacementManifest`**, and renders offset/yaw with **no IoU** when
+`plan.target` is null. The v1 HTTP contract is untouched: no server call happens on this
+path, so `schemas.py`, `api.ts` and `savedBundle.ts` were **not** widened, and the derived
+footprint ships only in `transform-derived-site.json`, which is a handoff artifact and explicitly
+not a `PlacementManifest`.
+
+*Measured, and the reason the outline is trustworthy at all:* `deriveSite` was run against shapes
+with known areas, which found a real bug. `fillVoids` seeded its exterior flood from grid cell 0,
+and an edge stamped at exactly `box.min` rounds into that cell; with the seed occupied the flood
+visited nothing, **every** empty cell read as an interior void, and the silhouette filled solid —
+an L came out as its bounding box (1627 m² against a true 1200), silently, for every object.
+Fixed with two cells of padding (`PAD_CELLS`) and seeding from every empty border cell. Verified
+after the fix: L → 6 corners, 1217.8 m² (hull would be 1400); courtyard block → void filled,
+1617.8 m²; a Z-up/centimetre/off-origin box → normalised to metres, base on `y = 0`, centred on
+the origin, `scale.uniform === 1`. The ~1.5 % area overshoot is the half-cell dilation from edge
+stamping — the outline sits ~one cell outside the true silhouette, which is the conservative
+direction. **Do not reintroduce a single-seed flood.**
 
 **Walk-mode fixes (2026-09-20).** `camPitch` only moved the camera's *height* while the camera did
 `lookAt(player)`, so the top of a 20–50 m building was permanently off-screen; pitch now also lifts

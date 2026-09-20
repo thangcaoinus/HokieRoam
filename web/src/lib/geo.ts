@@ -11,7 +11,10 @@ export interface GeoResult {
   footprint: V2[]
   footprintLatLon: [number, number][]
   neighbors: V2[][]
-  source: 'osm' | 'demo'
+  /** 'derived' is the free-import site: the outline came from the object's own plan silhouette,
+   *  so there is no geographic anchor and `lat`/`lon`/`footprintLatLon` carry nothing real.
+   *  Anywhere this is shown to a human it must not read as a located footprint. */
+  source: 'osm' | 'demo' | 'derived'
   osmId?: string
   identityConfirmed?: boolean
   bucket: string

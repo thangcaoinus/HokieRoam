@@ -8,6 +8,7 @@ import FitScene, { type Layers } from '../components/FitScene'
 import { CandidateThumb, FitPlot } from '../components/FitPlot'
 import MatrixView from '../components/MatrixView'
 import ServerFitStage from './ServerFitStage'
+import SandboxFitStage from './SandboxFitStage'
 
 const SOLVER = [
   { t: 'Normalize', d: 'Y-up · meters' },
@@ -65,6 +66,10 @@ function transformJSON(fit: FitResult) {
 
 export default function FitStage() {
   const serverMesh = useStore((s) => !!(s.mesh?.meta.jobId || s.mesh?.meta.exampleId || s.mesh?.meta.bundle))
+  // A derived site is checked first: it has no authoritative footprint, so neither fit engine has
+  // anything to solve against and neither may present a score for it.
+  const derived = useStore((s) => s.geo?.source === 'derived')
+  if (derived) return <SandboxFitStage />
   return serverMesh ? <ServerFitStage /> : <PreviewFitStage />
 }
 

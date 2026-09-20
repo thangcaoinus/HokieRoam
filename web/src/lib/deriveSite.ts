@@ -19,19 +19,38 @@ import type { MeshAsset } from './reconstruct'
  *  metre-accuracy GIS footprints the scored path works with, so the outline is never the limit. */
 const CELLS_ACROSS = 360
 const MIN_CELL_M = 0.05
+/** Empty cells of margin on every side of the grid. See `rasterize`. */
+const PAD_CELLS = 2
 /** Ceiling on interior-fill work so one pathological triangle cannot hang the tab. Edge stamping
  *  is never skipped, so the silhouette stays closed even if this budget runs out. */
 const FILL_BUDGET = 40_000_000
 
 export type OutlineMethod = 'plan-silhouette' | 'convex-hull'
 
-export interface DerivedSite {
-  geo: GeoResult
-  fit: FitResult
+/** Where the object's real-world size came from. `as-authored` trusts the file's own units;
+ *  `user-declared` is a size the person typed, which is a claim, not a measurement. Neither is
+ *  ever `measured` — nothing on this path can independently verify a dimension. */
+export type ScaleProvenance = 'as-authored' | 'user-declared'
+
+/** How a derived site was produced, without the artifacts themselves. Lives in the store so the
+ *  review stage can report provenance even though the derivation ran back on Ingest. */
+export interface DerivedMeta {
   method: OutlineMethod
   cellM: number
-  /** Mesh height in metres after normalisation — the object's own, not a record. */
+  /** Height in metres as the file authored it, before any declared size is applied. */
+  authoredHeightM: number
+  /** Height in metres actually used. Equals `authoredHeightM` unless a size was declared. */
   heightM: number
+  scale: number
+  scaleProvenance: ScaleProvenance
+  /** True when the file looks unit-normalised rather than built at real-world size — generators
+   *  commonly emit a roughly unit-box mesh, which carries no scale to recover. */
+  looksUnscaled: boolean
+}
+
+export interface DerivedSite extends DerivedMeta {
+  geo: GeoResult
+  fit: FitResult
 }
 
 function eachTriangle(root: THREE.Object3D, N: THREE.Matrix4, cb: (a: THREE.Vector3, b: THREE.Vector3, c: THREE.Vector3) => void) {
@@ -59,10 +78,14 @@ interface Grid { nx: number; nz: number; cell: number; ox: number; oz: number; c
 function rasterize(root: THREE.Object3D, N: THREE.Matrix4, box: THREE.Box3): Grid {
   const span = Math.max(box.max.x - box.min.x, box.max.z - box.min.z)
   const cell = Math.max(MIN_CELL_M, span / CELLS_ACROSS)
-  // One empty cell of padding on every side so the boundary trace always has an outside to hug.
-  const nx = Math.ceil((box.max.x - box.min.x) / cell) + 3
-  const nz = Math.ceil((box.max.z - box.min.z) / cell) + 3
-  const ox = box.min.x - cell, oz = box.min.z - cell
+  // TWO empty cells of padding on every side, so the boundary trace always has an outside to hug
+  // and the border ring is guaranteed empty. One was not enough: an edge stamped at exactly
+  // box.min rounds into the first cell, and an occupied border stranded fillVoids' exterior
+  // flood — which then read every empty cell as an interior void and filled the whole silhouette
+  // solid, turning an L-shaped object into its bounding box.
+  const nx = Math.ceil((box.max.x - box.min.x) / cell) + 1 + PAD_CELLS * 2
+  const nz = Math.ceil((box.max.z - box.min.z) / cell) + 1 + PAD_CELLS * 2
+  const ox = box.min.x - PAD_CELLS * cell, oz = box.min.z - PAD_CELLS * cell
   const cells = new Uint8Array(nx * nz)
   const ix = (x: number) => Math.floor((x - ox) / cell)
   const iz = (z: number) => Math.floor((z - oz) / cell)
@@ -97,13 +120,19 @@ function rasterize(root: THREE.Object3D, N: THREE.Matrix4, box: THREE.Box3): Gri
   return { nx, nz, cell, ox, oz, cells }
 }
 
-/** Flood the exterior from the padded corner; every empty cell it cannot reach is an interior
- *  void and becomes solid. A building footprint is a region, not a shell. */
+/** Flood the exterior inward from the padded border; every empty cell it cannot reach is an
+ *  interior void and becomes solid. A building footprint is a region, not a shell.
+ *
+ *  Seeded from EVERY empty border cell rather than one corner: a single occupied corner used to
+ *  strand the flood, after which nothing was reachable, every empty cell counted as a void, and
+ *  the silhouette filled solid — the failure that made an L read as its bounding box. */
 function fillVoids(g: Grid) {
   const { nx, nz, cells } = g
   const seen = new Uint8Array(nx * nz)
-  const stack = [0]
-  seen[0] = 1
+  const stack: number[] = []
+  const seed = (k: number) => { if (!seen[k] && !cells[k]) { seen[k] = 1; stack.push(k) } }
+  for (let i = 0; i < nx; i++) { seed(i); seed((nz - 1) * nx + i) }
+  for (let j = 0; j < nz; j++) { seed(j * nx); seed(j * nx + nx - 1) }
   while (stack.length) {
     const at = stack.pop()!
     const i = at % nx, j = (at - i) / nx
@@ -199,7 +228,14 @@ function simplifyRing(ring: V2[], eps: number): V2[] {
 
 const identity = () => new THREE.Matrix4().toArray()
 
-export function deriveSite(mesh: MeshAsset, name: string): DerivedSite {
+/**
+ * @param declaredHeightM a real-world height the person states for this object, in metres. A
+ *   generated mesh is usually normalised to about a unit box and carries no recoverable scale;
+ *   the scored path resolves that by scaling to the authoritative footprint, which does not exist
+ *   here. So the size is asked for rather than invented, applied **uniformly** so proportions are
+ *   preserved (deck p.58 prefers exactly that), and reported as `user-declared` everywhere.
+ */
+export function deriveSite(mesh: MeshAsset, name: string, declaredHeightM?: number | null): DerivedSite {
   const N = mesh.normalization
   const box = new THREE.Box3()
   const v = new THREE.Vector3()
@@ -209,7 +245,14 @@ export function deriveSite(mesh: MeshAsset, name: string): DerivedSite {
     vertexCount += 3
   })
   if (box.isEmpty()) throw new Error('This file has no triangles to place.')
-  const heightM = box.max.y - box.min.y
+  const authoredHeightM = box.max.y - box.min.y
+  // Uniform, so proportions are untouched; the object is only ever resized as a whole.
+  const k = declaredHeightM && declaredHeightM > 0 && authoredHeightM > 0
+    ? declaredHeightM / authoredHeightM : 1
+  const scaleProvenance: ScaleProvenance = k === 1 ? 'as-authored' : 'user-declared'
+  const heightM = authoredHeightM * k
+  const looksUnscaled = Math.max(
+    box.max.x - box.min.x, authoredHeightM, box.max.z - box.min.z) < 5
 
   const grid = rasterize(mesh.object, N, box)
   fillVoids(grid)
@@ -236,6 +279,10 @@ export function deriveSite(mesh: MeshAsset, name: string): DerivedSite {
   // Match convexHull's winding so every consumer (clipping, extrusion) sees one convention.
   if (Math.sign(signedArea(outline)) !== Math.sign(signedArea(convexHull(outline)))) outline.reverse()
 
+  // The declared size scales the outline with the object: they describe the same thing.
+  if (k !== 1) outline = outline.map((p) => ({ x: p.x * k, z: p.z * k }))
+  const S = new THREE.Matrix4().makeScale(k, k, k)
+
   const obb = minAreaOBB(outline)
   const areaM2 = polygonArea(outline)
   const geo: GeoResult = {
@@ -254,29 +301,36 @@ export function deriveSite(mesh: MeshAsset, name: string): DerivedSite {
   const fit: FitResult = {
     authority: 'derived-site',
     matrices: {
-      N: N.toArray(), Ralign: identity(), Tground: Tground.toArray(), S: identity(),
+      N: N.toArray(), Ralign: identity(), Tground: Tground.toArray(), S: S.toArray(),
       Ry: identity(), Ttarget: identity(),
-      M: new THREE.Matrix4().multiply(Tground).multiply(N).toArray(),
+      // S last: scaling about the origin after grounding keeps the base on y = 0 and the plan
+      // extent centred, so a declared size never un-grounds the object.
+      M: new THREE.Matrix4().multiply(S).multiply(Tground).multiply(N).toArray(),
     },
     rawAABB: { min: box.min.toArray(), max: box.max.toArray() },
     groundedAABB: {
-      min: v.copy(box.min).add(new THREE.Vector3(tx, -box.min.y, tz)).toArray(),
-      max: new THREE.Vector3(box.max.x + tx, box.max.y - box.min.y, box.max.z + tz).toArray(),
+      min: v.copy(box.min).add(new THREE.Vector3(tx, -box.min.y, tz)).multiplyScalar(k).toArray(),
+      max: new THREE.Vector3(box.max.x + tx, box.max.y - box.min.y, box.max.z + tz).multiplyScalar(k).toArray(),
     },
     meshOBB: obb, footprintOBB: obb,
     deltaThetaDeg: 0, yawDeg: 0,
     // No orientation search ran: the object keeps the orientation its author gave it, and there
     // is no independent footprint to rotate it onto.
-    candidates: [{ k: 0, angle: obb.angle, sx: 1, sz: 1, iou: 1, poly: outline }],
-    chosen: { k: 0, angle: obb.angle, sx: 1, sz: 1, iou: 1, poly: outline },
-    scale: { sx: 1, sy: 1, sz: 1, uniform: 1, divergence: 0, mode: 'uniform' },
+    candidates: [{ k: 0, angle: obb.angle, sx: k, sz: k, iou: 1, poly: outline }],
+    chosen: { k: 0, angle: obb.angle, sx: k, sz: k, iou: 1, poly: outline },
+    scale: { sx: k, sy: k, sz: k, uniform: k, divergence: 0, mode: 'uniform' },
     iou: 1, collisions: [], confidence: 1,
     flags: [
       { level: 'ok', text: `Outline derived from the model itself — ${outline.length} vertices, ${areaM2.toFixed(0)} m²` },
-      { level: 'ok', text: 'Proportions preserved — units and axes normalised, base grounded, no scaling applied' },
+      scaleProvenance === 'user-declared'
+        ? { level: 'warn', text: `Size is user-declared, not measured — ${declaredHeightM!.toFixed(1)} m tall, uniform ${k.toFixed(3)}x, proportions preserved` }
+        : looksUnscaled
+          ? { level: 'warn', text: `Size is the file's own units (${authoredHeightM.toFixed(2)} m tall) and looks unit-normalised — declare a real height for a true-to-life site` }
+          : { level: 'ok', text: `Size is the file's own units — ${authoredHeightM.toFixed(1)} m tall, no scaling applied` },
+      { level: 'ok', text: 'Units and axes normalised, base grounded, proportions preserved' },
       { level: 'warn', text: 'No authoritative footprint: overlap is not measured and no placement verdict is claimed' },
     ],
     height: heightM, vertexCount,
   }
-  return { geo, fit, method, cellM: grid.cell, heightM }
+  return { geo, fit, method, cellM: grid.cell, authoredHeightM, heightM, scale: k, scaleProvenance, looksUnscaled }
 }

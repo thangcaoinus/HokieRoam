@@ -20,6 +20,11 @@ export default function MapView({ geo, loading }: { geo: GeoResult | null; loadi
     return () => ro.disconnect()
   }, [])
 
+  // A derived site has no coordinates, so there is no correct tile to fetch. Requesting any
+  // would both show the wrong place (Null Island) and put a network call on a path that
+  // advertises itself as needing no geographic lookup.
+  const anchored = !!geo && geo.source !== 'derived'
+
   const view = useMemo(() => {
     if (!geo) return null
     const ext = Math.max(...geo.footprint.map((p) => Math.max(Math.abs(p.x), Math.abs(p.z)))) * 2
@@ -31,7 +36,7 @@ export default function MapView({ geo, loading }: { geo: GeoResult | null; loadi
     const x0 = Math.floor((c.x - size.w / 2) / TILE), x1 = Math.floor((c.x + size.w / 2) / TILE)
     const y0 = Math.floor((c.y - size.h / 2) / TILE), y1 = Math.floor((c.y + size.h / 2) / TILE)
     const tiles: { key: string; src: string; left: number; top: number }[] = []
-    for (let tx = x0; tx <= x1; tx++)
+    if (anchored) for (let tx = x0; tx <= x1; tx++)
       for (let ty = y0; ty <= y1; ty++)
         tiles.push({
           key: `${z}/${tx}/${ty}`,
@@ -43,7 +48,7 @@ export default function MapView({ geo, loading }: { geo: GeoResult | null; loadi
     const obb = minAreaOBB(geo.footprint)
     const barM = [5, 10, 20, 25, 50, 100].find((m) => m / mpp > 70) ?? 100
     return { tiles, P, obb, mpp, z, barM }
-  }, [geo, size])
+  }, [geo, size, anchored])
 
   return (
     <div className="map" ref={ref}>
@@ -114,7 +119,7 @@ export default function MapView({ geo, loading }: { geo: GeoResult | null; loadi
             </g>
           </svg>
           <div className="map-corner">
-            <span className="chip mono" style={{ background: 'rgba(8,8,10,.75)' }}>z{view.z} · {geo!.source === 'osm' ? `OSM ${geo!.osmId}` : 'demo parcel'}</span>
+            <span className="chip mono" style={{ background: 'rgba(8,8,10,.75)' }}>{anchored ? `z${view.z} · ` : ''}{geo!.source === 'osm' ? `OSM ${geo!.osmId}` : geo!.source === 'derived' ? 'derived outline · no basemap' : 'demo parcel'}</span>
           </div>
           <div className="map-hud">
             <div className="hud-card"><div className="cap">Footprint</div><div className="big">{geo!.areaM2.toFixed(0)} m²</div></div>

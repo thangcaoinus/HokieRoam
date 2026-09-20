@@ -18,6 +18,8 @@ export default function IngestStage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const bundleRef = useRef<HTMLInputElement>(null)
   const [bundleBusy, setBundleBusy] = useState(false)
+  const objectRef = useRef<HTMLInputElement>(null)
+  const [objectBusy, setObjectBusy] = useState(false)
 
   const resolve = async (q = s.address) => {
     if (!q.trim()) return
@@ -79,6 +81,35 @@ export default function IngestStage() {
           try { await (await import('../lib/savedBundle')).openSavedBundle(file) }
           catch (err) { setError((err as Error).message) }
           finally { setBundleBusy(false) }
+        }} />
+      </div>
+      <div className="card card-pad" style={{ marginBottom: 24 }}>
+        <div className="card-title">Already have a model?</div>
+        <p className="dimmer">
+          Import a <b>.glb</b> or <b>.obj</b> and skip the address. We measure its real dimensions, derive its
+          footprint from its own top-down silhouette, normalise units and axes and ground it — then you place it
+          and export the transform. No generation, no geographic lookup.
+          <br />
+          <b>No authoritative footprint is involved, so this path reports no overlap score and no placement verdict.</b>
+        </p>
+        <button className="btn" disabled={objectBusy || bundleBusy || exampleBusy} onClick={() => objectRef.current?.click()}>
+          {objectBusy ? 'Measuring your object…' : 'Import your own model'}
+        </button>
+        <input ref={objectRef} aria-label="Your own 3D model" type="file" accept=".glb,.obj,model/gltf-binary" hidden onChange={async (e) => {
+          const file = e.target.files?.[0]; e.target.value = ''
+          if (!file) return
+          setObjectBusy(true); setError('')
+          try {
+            const { loadMeshFile } = await import('../lib/reconstruct')
+            s.log(`ingest › reading ${file.name} (${(file.size / 1048576).toFixed(1)} MB)`)
+            const mesh = await loadMeshFile(file)
+            // Mesh first, then the derived site: deriveIntoStore reads the mesh out of the store.
+            s.set({ mesh, geo: null, placement: null, concept: null, example: null, bundle: null })
+            const site = (await import('./SandboxFitStage')).deriveIntoStore(file.name)
+            if (!site) throw new Error('This file has no geometry to place.')
+            s.go('fit')
+          } catch (err) { setError((err as Error).message) }
+          finally { setObjectBusy(false) }
         }} />
       </div>
       {error && <div role="alert" className="err-text" style={{ marginBottom: 16 }}>{error}</div>}

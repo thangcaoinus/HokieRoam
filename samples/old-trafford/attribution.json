@@ -1,0 +1,40 @@
+{
+  "subject": "Old Trafford, Manchester United, Manchester UK",
+  "collected": "2026-09-19",
+  "collected_from": "Wikimedia Commons",
+  "note": "Reuse requires attribution per each file's license (CC BY / CC BY-SA credit the author and link the source).",
+  "views": [
+    {
+      "file": "view1-north-ferguson-stand.jpg",
+      "view_note": "North: Sir Alex Ferguson Stand from the Bridgewater Canal",
+      "commons_title": "Alex Ferguson Stand at Old Trafford - geograph.org.uk - 7627282.jpg",
+      "author": "Chris Morgan",
+      "license": "CC BY-SA 2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Alex_Ferguson_Stand_at_Old_Trafford_-_geograph.org.uk_-_7627282.jpg"
+    },
+    {
+      "file": "view2-east-main-entrance.jpg",
+      "view_note": "East: main entrance forecourt, glass facade under the MANCHESTER UNITED sign",
+      "commons_title": "Manchester United football ground - geograph.org.uk - 8107592.jpg",
+      "author": "Eirian Evans",
+      "license": "CC BY-SA 2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Manchester_United_football_ground_-_geograph.org.uk_-_8107592.jpg"
+    },
+    {
+      "file": "view3-west-stretford-end.jpg",
+      "view_note": "West: Stretford End / West Stand corner from Sir Matt Busby Way",
+      "commons_title": "Old Trafford Football Ground - geograph.org.uk - 7594895.jpg",
+      "author": "N Chadwick",
+      "license": "CC BY-SA 2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Old_Trafford_Football_Ground_-_geograph.org.uk_-_7594895.jpg"
+    },
+    {
+      "file": "view4-south-canal-corner.jpg",
+      "view_note": "South-west: curved glass corner and south stand from the canal",
+      "commons_title": "Old Trafford Football Ground - geograph.org.uk - 7594879.jpg",
+      "author": "N Chadwick",
+      "license": "CC BY-SA 2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Old_Trafford_Football_Ground_-_geograph.org.uk_-_7594879.jpg"
+    }
+  ]
+}

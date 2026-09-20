@@ -5,7 +5,8 @@ import * as THREE from 'three'
 import { ArrowLeft, MousePointer2, ShieldAlert } from 'lucide-react'
 import { useStore } from '../store'
 import { pointInPolygon, unproject, type V2 } from '../lib/geo'
-import { placementScene, type ScenePlacement } from '../lib/placement'
+import { derivedScene, placementScene, type ScenePlacement } from '../lib/placement'
+import DerivedScene from '../components/DerivedScene'
 import { PlacedAsset } from '../components/PlacedScene'
 import PlacedScene from '../components/PlacedScene'
 import type { MeshAsset } from '../lib/reconstruct'
@@ -247,21 +248,26 @@ function Minimap({ footprint, neighbors, state, fit }: { footprint: V2[]; neighb
 
 function Readout({ state }: { state: React.MutableRefObject<PlayerState> }) {
   const geo = useStore((s) => s.geo)!
-  const [r, setR] = useState({ lat: geo.lat, lon: geo.lon, speed: 0, blocked: null as string | null })
+  // A derived site is not registered to the world, so the walker's position is reported in metres
+  // from the site origin. Unprojecting it would dress an offset from Null Island as a coordinate.
+  const anchored = geo.source !== 'derived'
+  const [r, setR] = useState({ lat: geo.lat, lon: geo.lon, x: 0, z: 0, speed: 0, blocked: null as string | null })
   useEffect(() => {
     const id = setInterval(() => {
       const st = state.current
       const [lat, lon] = unproject({ x: st.pos.x, z: st.pos.z }, geo.lat, geo.lon)
-      setR({ lat, lon, speed: st.speed, blocked: st.blocked })
+      setR({ lat, lon, x: st.pos.x, z: st.pos.z, speed: st.speed, blocked: st.blocked })
     }, 120)
     return () => clearInterval(id)
   }, [state, geo])
   return (
     <>
       <div className="glass" style={{ padding: '12px 16px', minWidth: 250 }}>
-        <div className="eyebrow" style={{ fontSize: 10 }}>Live · map-anchored</div>
+        <div className="eyebrow" style={{ fontSize: 10 }}>{anchored ? 'Live · map-anchored' : 'Live · derived site · no anchor'}</div>
         <div style={{ font: '600 17px var(--display)', margin: '4px 0 6px' }}>{geo.displayName.split(',')[0]}</div>
-        <div className="kv"><span>Position</span><span>{r.lat.toFixed(6)}, {r.lon.toFixed(6)}</span></div>
+        <div className="kv"><span>Position</span><span>{anchored
+          ? `${r.lat.toFixed(6)}, ${r.lon.toFixed(6)}`
+          : `${r.x.toFixed(1)} m E, ${(-r.z).toFixed(1)} m N of site origin`}</span></div>
         <div className="kv"><span>Speed</span><span>{r.speed.toFixed(1)} m/s</span></div>
       </div>
       {r.blocked && <div className="glass toast" style={{ marginTop: 8 }}><ShieldAlert size={14} /> Collision · {r.blocked}</div>}
@@ -276,8 +282,15 @@ function WalkStage() {
   const [focused, setFocused] = useState(false)
   const [show, setShow] = useState({ footprint: true, bbox: false })
   const wrap = useRef<HTMLDivElement>(null)
-  const fit = useMemo(() => s.placement ? placementScene(s.placement, s.adjust) : s.fit!, [s.placement, s.adjust, s.fit])
+  // On the derived path the nudge IS the placement, not a correction to one, so it composes here
+  // the same way a manifest's does.
+  const fit = useMemo(() => s.placement ? placementScene(s.placement, s.adjust)
+    : s.geo?.source === 'derived' ? derivedScene(s.fit!, s.adjust)
+    : s.fit!, [s.placement, s.adjust, s.fit, s.geo])
   const geo = s.geo!, mesh = s.mesh!
+  // The derived outline is a property of the object, so it travels with a free placement rather
+  // than staying behind where the object was first grounded.
+  const siteFootprint = geo.source === 'derived' ? fit.chosen.poly : geo.footprint
   const state = useRef<PlayerState>({
     pos: spawnPoint(fit, [fit.chosen.poly, ...geo.neighbors]),
     heading: 0, camYaw: 0, camPitch: 0.15, vy: 0, speed: 0, blocked: null,
@@ -323,12 +336,12 @@ function WalkStage() {
   return (
     <div className="explore" ref={wrap}>
       <Canvas shadows camera={{ fov: 60, near: 0.1, far: 800, position: [0, 20, 60] }} dpr={[1, 2]}>
-        <World fit={fit} asset={mesh} footprint={geo.footprint} neighbors={geo.neighbors} style={s.presetId} state={state} keys={keys} show={show} />
+        <World fit={fit} asset={mesh} footprint={siteFootprint} neighbors={geo.neighbors} style={s.presetId} state={state} keys={keys} show={show} />
       </Canvas>
 
       <div className="hud tl"><Readout state={state} /></div>
       <div className="hud tr glass" style={{ padding: 8, borderRadius: '50%' }}>
-        <Minimap footprint={geo.footprint} neighbors={geo.neighbors} state={state} fit={fit} />
+        <Minimap footprint={siteFootprint} neighbors={geo.neighbors} state={state} fit={fit} />
       </div>
       <div className="hud bl glass" style={{ padding: 14, display: 'flex', gap: 18, alignItems: 'flex-end' }}>
         <div className="keys">
@@ -376,20 +389,32 @@ export default function ExploreStage() {
   const [mode, setMode] = useState<'orbit' | 'walk'>('orbit')
   const [camera, setCamera] = useState(0)
   if (!s.mesh || !s.geo || !(s.placement || s.fit)) return <div className="stage">Placement is no longer available. Return to Fit to place this design.</div>
-  if (!s.placement) return <WalkStage />
+  const derived = s.geo.source === 'derived'
+  // Simulation output has neither a manifest nor a derived site, so it keeps the bare walk view.
+  if (!s.placement && !derived) return <WalkStage />
+  const derivedFit = derived ? derivedScene(s.fit!, s.adjust) : null
   return <div className="explore">
-    {mode === 'walk' ? <WalkStage key={camera} /> : <PlacedScene key={camera} asset={s.mesh} placement={s.placement} />}
+    {mode === 'walk'
+      ? <WalkStage key={camera} />
+      : derivedFit
+        ? <DerivedScene key={camera} asset={s.mesh} matrix={derivedFit.matrices.M} outline={derivedFit.chosen.poly} />
+        : <PlacedScene key={camera} asset={s.mesh} placement={s.placement!} />}
     <div className="glass" style={{ position: 'absolute', top: 16, left: 16, right: 240, zIndex: 5, padding: 14 }}>
       <div className="row wrap">
-        <b>Placement: {s.placement.plan_fit}</b>
+        {/* A derived site has no verdict to report, and must not borrow the look of one. */}
+        <b>{s.placement ? `Placement: ${s.placement.plan_fit}` : 'Derived site · placement not scored'}</b>
         <button className="btn sm" onClick={() => { document.exitPointerLock(); setMode(mode === 'orbit' ? 'walk' : 'orbit') }}>{mode === 'orbit' ? 'Walk around' : 'Orbit view'}</button>
         <button className="btn sm" onClick={() => { document.exitPointerLock(); setCamera((n) => n + 1) }}>Reset camera</button>
         <button className="btn sm" onClick={() => { document.exitPointerLock(); s.go('fit') }}>Inspect / export</button>
       </div>
-      <div className="dimmer" style={{ marginTop: 6 }}>Heading unverified · {s.placement.height === 'inferred' ? 'height inferred from the mesh' : `height ${s.placement.request.measured_height_m?.toFixed(1)} m from the ${s.placement.provenance.source.toUpperCase()} record`}{s.placement.plan_fit === 'rejected' ? ' · Inspection only: this placement fails the fit constraints.' : ''}</div>
-      <details style={{ marginTop: 8 }}><summary>Source photo and prompt</summary>
+      <div className="dimmer" style={{ marginTop: 6 }}>{!s.placement
+        ? `Outline derived from the model · no geographic anchor · size ${s.derived?.scaleProvenance === 'user-declared' ? 'user-declared' : 'as authored in the file'}`
+        : <>Heading unverified · {s.placement.height === 'inferred' ? 'height inferred from the mesh' : `height ${s.placement.request.measured_height_m?.toFixed(1)} m from the ${s.placement.provenance.source.toUpperCase()} record`}{s.placement.plan_fit === 'rejected' ? ' · Inspection only: this placement fails the fit constraints.' : ''}</>}</div>
+      {/* An imported object was not generated from a prompt here; showing the idle preset text
+          would imply it was. */}
+      {!derived && <details style={{ marginTop: 8 }}><summary>Source photo and prompt</summary>
         <p>{s.prompt}</p>{s.photos[0] && <img src={s.photos[0]} alt="Original building" style={{ width: 180, borderRadius: 8 }} />}
-      </details>
+      </details>}
     </div>
   </div>
 }

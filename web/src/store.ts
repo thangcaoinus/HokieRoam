@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { GeoResult } from './lib/geo'
 import type { FitResult } from './lib/fit'
+import type { DerivedMeta } from './lib/deriveSite'
 import type { MeshAsset } from './lib/reconstruct'
 import type { JobView, PlacementManifest } from './lib/api'
 import { placementMatches } from './lib/placement'
@@ -50,6 +51,12 @@ interface State {
   concept: string | null
   mesh: MeshAsset | null
   fit: FitResult | null
+  /** Free-import only: a real-world height the person states for an imported object, in metres.
+   *  A generated mesh carries no recoverable scale and there is no footprint to fit it to, so
+   *  this is a declared claim rather than a measurement and is labelled that way everywhere. */
+  declaredHeightM: number | null
+  /** How the current derived site was produced. Null on the scored path. */
+  derived: DerivedMeta | null
   placement: PlacementManifest | null
   /** Manual placement correction applied on top of the computed one, in scene metres/radians.
    *  Never merged into the manifest: the server fit stays the authoritative, exportable result
@@ -82,6 +89,8 @@ const initial = {
   concept: null,
   mesh: null,
   fit: null,
+  declaredHeightM: null as number | null,
+  derived: null as DerivedMeta | null,
   placement: null,
   adjust: null as Adjustment | null,
   example: null,
@@ -116,7 +125,12 @@ export function unlocked(s: Pick<State, 'geo' | 'photos' | 'concept' | 'mesh' | 
 }
 
 export function completed(s: Pick<State, 'geo' | 'photos' | 'concept' | 'mesh' | 'fit' | 'placement'>): Record<StageId, boolean> {
-  return { ingest: !!s.geo && s.photos.length > 0, redesign: !!s.concept, reconstruct: !!s.mesh, fit: !!(s.fit || s.placement), explore: false }
+  // A freely imported object brings its own site and never needs photos, so Ingest is complete
+  // for it as soon as the outline exists.
+  return {
+    ingest: !!s.geo && (s.photos.length > 0 || s.geo.source === 'derived'),
+    redesign: !!s.concept, reconstruct: !!s.mesh, fit: !!(s.fit || s.placement), explore: false,
+  }
 }
 
 let bundleUrls: string[] = []
@@ -133,12 +147,14 @@ useStore.subscribe((s, prev) => {
   // A manual correction is expressed relative to one computed placement. If that placement is
   // replaced or invalidated the correction means nothing, so it is dropped rather than reapplied
   // to a different transform.
-  const staleAdjust = s.adjust && (invalid || s.placement !== prev.placement)
+  // The derived (free-import) path has no manifest, so its correction is expressed against the
+  // FitResult instead; changing the mesh or the site invalidates it for exactly the same reason.
+  const staleAdjust = s.adjust && (invalid || s.placement !== prev.placement || inputsChanged)
   if (invalid || staleAdjust || (inputsChanged && s.fit)) {
     useStore.setState({
       ...(invalid ? { placement: null } : {}),
       ...(staleAdjust ? { adjust: null } : {}),
-      ...(inputsChanged ? { fit: null } : {}),
+      ...(inputsChanged ? { fit: null, derived: null } : {}),
       ...(s.stage === 'explore' ? { stage: s.geo && s.mesh ? 'fit' : 'ingest' } : {}),
     })
   }
