@@ -816,3 +816,68 @@ been pushed** — the push needs a human.
 
 Re-sync this file before moving on: what actually got wired, which contract was chosen, which fit engine is
 authoritative, which modules are done and what was observed to prove it.
+
+## Demo video (recorded 2026-09-20)
+
+`assets/hokieroam-demo.mp4` — **2:53, 1920×1080, H.264, 41 MB**, subtitled, no voiceover. Indexed in
+`assets/README.md`; Devpost takes a video *URL*, so it still needs a YouTube upload.
+Sources kept under the session scratchpad (`rec/tour`, `rec/generate`, `rec/finish`) as VP8 webm.
+
+Recorded by `web/scripts/demo/` (`harness.mjs` + three segment scripts), which drives the **real app in
+headed Chrome** via `channel: 'chrome'` — ANGLE Metal on the M4, ~120 fps, so the 3D is real GPU output,
+not SwiftShader. Playwright's own `recordVideo` captures the page, so no screen-recording permission and
+no window furniture in frame. Subtitles and title cards are **injected into the page as DOM** and styled
+from the app's own tokens, so they are captured natively — there is no burn-in pass and no font mismatch.
+
+Two things in the harness are simulated, and both are input plumbing, never app behaviour:
+
+- **Pointer lock.** Chrome refuses `requestPointerLock()` for an automated click *even headed* (verified),
+  and every walk-mode key and mouse handler is correctly gated on `document.pointerLockElement`. The
+  harness redefines that getter in an init script. Walk physics, collision and rendering are the app's own.
+- **Mouse-look deltas**, dispatched as real `mousemove` events, so camera paths are smooth and repeatable.
+
+Three things that cost takes and are worth knowing:
+
+- **`lookLift = max(0, -camPitch) * 42` — a NEGATIVE pitch raises the gaze.** Positive pitch only lifts the
+  camera and keeps it staring at the player's feet, which is why the first two walk takes were all grass.
+- **Yawing while holding W turns the player**, because movement is camera-relative
+  (`forward = (-sin camYaw, -cos camYaw)`). Pan only while standing still or the walk curves off into open
+  ground. Spawn already faces the building, so a straight W approaches it.
+- **Walking all the way up to a facade with the gaze lifted ends on sky.** The close is trimmed to the
+  approach-and-pan, not the arrival.
+
+### The Gilbert "futuristic" generation — job `8b810a62`
+
+One real 3-view Meshy job (4 submissions, 5 → **9 of 12**; balance was 2614 credits, so cost was not the
+constraint). Submitted on camera 07:10, succeeded ~07:19 — **about nine minutes**, which is what the film's
+cut card says. Prompt: *"Make this building look futuristic: mirror-polished white composite panels, deep
+blue photovoltaic glazing, glowing cyan light lines along every floor slab, slender aerodynamic shading
+fins. Keep the cantilever, the massing and the floor lines so the building stays recognisable."*
+Result: **55.1k tris, fitted to the real OSM footprint (way/43972334) at 61.2 % IoU → `rejected`**, spill
+0.2 m², neighbour overlap 0.22 m². That verdict is on screen in the film; it was not tuned.
+
+`seg-finish.mjs` re-enters the **identical** photos, prompt, strength and polycount in a fresh context, so
+the fingerprint matches, `attempt` stays 0, and the server replays the finished job — the app logs
+`same inputs → re-attached to existing job`. **Verified: `submissions_used` stayed at 9 across three
+finish takes.** This is the documented no-double-charge path, exercised for real.
+
+### Overpass is unreliable from this network — and it silently poisons a take
+
+`overpass-api.de` returns **406 to this IP on every form** (POST, GET, browser UA — all tested);
+`kumi.systems` and `private.coffee` time out; `overpass.osm.ch` answers 200 with **zero ways because it is
+a Switzerland-only mirror**. The browser succeeds intermittently — roughly two attempts in three. A miss
+falls back to the synthetic demo parcel, and **the fit then scores against a fake footprint**: one finish
+take reported a meaningless 73.9 % that way. `seg-finish.mjs` now retries the resolve up to 5× and
+**aborts rather than record a take measuring a demo parcel**. Any future recording must check this.
+
+### Dev-server state left behind
+
+The API was restarted to add the recording origin to CORS (`config.py` defaults to :5173 only, and the
+harness serves on **:5190**), and it is now running **without `--reload`**:
+
+```bash
+pkill -f "uvicorn app.main:app"
+cd server && set -a; . .env; set +a; .venv/bin/uvicorn app.main:app --reload --port 8000   # restore
+```
+
+A `vite dev` on :5190 is also still up. `.env` itself was **not** edited; the extra origin was passed inline.
