@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, RotateCcw, Terminal } from 'lucide-react'
+import { Boxes, Check, RotateCcw, Terminal } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { STAGES, completed, unlocked, useStore, type ApiState, type StageId } from './store'
 import { probeHealth, resumeSession } from './lib/pipelineJob'
@@ -8,9 +8,11 @@ import RedesignStage from './stages/RedesignStage'
 import ReconstructStage from './stages/ReconstructStage'
 import FitStage from './stages/FitStage'
 import ExploreStage from './stages/ExploreStage'
+import SandboxStage from './stages/SandboxStage'
 
 
 const VIEWS: Record<StageId, () => JSX.Element> = {
+  sandbox: SandboxStage,
   ingest: IngestStage,
   redesign: RedesignStage,
   reconstruct: ReconstructStage,
@@ -26,7 +28,10 @@ export default function App() {
   const open = unlocked(s)
   const done = completed(s)
 
-  const sheet = STAGES.findIndex((st) => st.id === s.stage) + 1
+  // Sandbox is an aside, not one of the numbered sheets, so findIndex returns -1 there and
+  // the header names it instead of indexing STAGES out of bounds.
+  const sheetIndex = STAGES.findIndex((st) => st.id === s.stage)
+  const sheet = STAGES[sheetIndex]
 
   return (
     <>
@@ -39,7 +44,7 @@ export default function App() {
               </svg>
             </div>
             <div>GROUNDTRUTH</div>
-            <small>Sheet {sheet} of {STAGES.length} · {STAGES[sheet - 1].title}</small>
+            <small>{sheet ? `Sheet ${sheetIndex + 1} of ${STAGES.length} · ${sheet.title}` : 'Sandbox · local scene'}</small>
           </div>
           <div className="spacer" />
           {s.geo && (
@@ -66,7 +71,9 @@ export default function App() {
                   disabled={!open[st.id]}
                   onClick={() => s.go(st.id)}
                 >
-                  <span className="step-node">{done[st.id] && s.stage !== st.id ? <Check size={14} /> : i + 1}</span>
+                  <span className={`step-node ${done[st.id] && s.stage !== st.id ? 'step-node-icon' : ''}`}>
+                    {done[st.id] && s.stage !== st.id ? <Check size={14} /> : i + 1}
+                  </span>
                   <span>
                     <div className="step-title">{st.title}</div>
                     <div className="step-sub">{st.sub}</div>
@@ -75,6 +82,18 @@ export default function App() {
               </li>
             ))}
           </ol>
+          {/* An aside, not sheet 6: same ruled row as the index, but a glyph where the others
+              carry a number, and banded off by the heavier region rule. */}
+          <button
+            className={`step step-aside ${s.stage === 'sandbox' ? 'active' : ''}`}
+            onClick={() => s.go('sandbox')}
+          >
+            <span className="step-node step-node-icon"><Boxes size={14} /></span>
+            <span>
+              <div className="step-title">Sandbox</div>
+              <div className="step-sub">Multiple models · local scene</div>
+            </span>
+          </button>
           {(s.geo || s.mesh || s.fit || s.placement) && (
             <div className="rail-summary">
               {s.geo && <div className="kv"><span>Footprint</span><span>{s.geo.areaM2.toFixed(0)} m² · {s.geo.source === 'osm' ? s.geo.osmId : s.geo.source === 'derived' ? 'derived from model' : 'demo'}</span></div>}
@@ -91,7 +110,7 @@ export default function App() {
           <Console />
         </aside>
 
-        <main className={`main ${s.stage === 'explore' ? 'fullbleed' : ''}`}>
+        <main className={`main ${s.stage === 'explore' || s.stage === 'sandbox' ? 'fullbleed' : ''}`}>
           <AnimatePresence mode="wait">
             {/* Operate mode: a sheet change, not a page-load sequence. 180 ms, no blur. */}
             <motion.div
@@ -100,7 +119,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              style={s.stage === 'explore' ? { position: 'absolute', inset: 0 } : undefined}
+              style={s.stage === 'explore' || s.stage === 'sandbox' ? { position: 'absolute', inset: 0 } : undefined}
             >
               <View />
             </motion.div>

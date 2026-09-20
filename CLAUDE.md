@@ -165,7 +165,11 @@ node scripts/check-polycount.mjs   # target_polycount UI → request identity, w
 node scripts/check-ingest-live.mjs # NETWORK: real Nominatim + Overpass → real footprint → photo → Redesign
 node scripts/check-manual-placement.mjs # drag-to-place changes live IoU, stays labelled manual, resets exactly
 node scripts/check-free-import.mjs # free import: no address, no API, no GIS, no IoU and no verdict on screen
+node scripts/check-sandbox.mjs     # FAILS at walk/collision (see below); needs a DEV server (vite, not preview)
 ```
+
+`check-sandbox.mjs` is the one check that needs `npx vite --port 5175`, not `vite preview`: it reaches
+into `/src/lib/sandbox.ts` and `/node_modules/.vite/deps/*` by dev-server URL.
 
 `check-derive-site.ts` is not a browser check — it is a headless geometry check for
 `lib/deriveSite`, run through esbuild (already a vite dependency), and it exists because the
@@ -445,6 +449,23 @@ volume collides now. `spawnPoint` uses the same set.
    neighbour parcels) and a reset-camera action. A raw-model toggle inspects the asset without the
    placement transform. Walk mode is exterior only — it does not claim reconstructed interiors.
 
+**Sandbox — multi-model staging, merged 2026-09-20.** A sixth `StageId`, reached from the
+unnumbered **Sandbox** row at the foot of the sheet index (it is an aside, not sheet 6 —
+`unlocked().sandbox` is always true, `completed().sandbox` always false, and the topbar prints
+`Sandbox · local scene` instead of a sheet number). It renders as `.step.step-aside`, the same ruled
+row as the five sheets with a `Boxes` glyph where they carry a number, banded off by `--rule-2`; see
+`DESIGN.md` § Structure. It shipped as a filled vermilion `.btn primary` floated in the rail gutter,
+which spent the reserved accent on a permanent control — do not put it back. `stages/SandboxStage.tsx` +
+`lib/sandbox.ts` hold a **separate zustand store** (`useSandbox`) of `{asset, x, z, yaw, scale}`
+models: import many `.glb`/`.obj` at once, arrange them with a TransformControls gizmo or the
+numeric inspector, **Frame all**, then **Walk scene** — which reuses `ExploreStage`'s exported
+`WalkStage` via the `sandbox?: WalkModel[]` prop, so one walk implementation serves both paths.
+The scene survives navigation between sheets but not a refresh. It is **local and unscored**: no
+address, no anchor, no IoU, no verdict — the same honesty rule as the derived-site path, and
+size for unit-normalised imports is a **labelled estimate** (the fitted building's height, or 20 m),
+never a measurement. `main.tsx` dropped `React.StrictMode` for it: R3F 8 schedules canvas teardown
+500 ms after unmount, and StrictMode's effect replay killed a freshly mounted walkthrough's frame loop.
+
 The header chip reads **"Local AI simulation"** when `VITE_API_BASE` is unset; otherwise it probes
 `GET /v1/health` and reads `Pipeline API connected · meshy`, `· fixture (synthetic)`, `unreachable` or
 `checking…`. Keep that honesty signal anywhere simulated output can reach a screen.
@@ -607,10 +628,28 @@ Also open in the tree: `ruff check app` is clean, but `ruff check tests` still r
 `test_job_options.py`. `web/README.md` / `samples/README.md` still describe the DDS-only example set and
 have **not** been updated for the Burruss switch — do that when touching either area.
 
-Untracked and **not created by the repo's own tooling**: `.agents/`, `.codex/` and a root `AGENTS.md`
-appeared on 2026-09-20 as harness mirrors of `.claude/skills/impeccable` and `CLAUDE.md`. Something on
-the developer's machine syncs agent config across harnesses. Decide whether to commit or ignore them;
-`AGENTS.md` is a stale copy of `CLAUDE.md` the moment this file changes.
+`.agents/`, `.codex/` and a root `AGENTS.md` are **now tracked** — the `update UI` commit committed
+them along with `.claude/skills/impeccable`. They are harness mirrors, not repo tooling, and `AGENTS.md`
+is a copy of `CLAUDE.md` that goes stale the moment this file changes. Nothing regenerates it, so either
+re-copy it or delete it; do not treat it as a second source of truth.
+
+**`web/scripts/check-sandbox.mjs` does not pass yet.** Its walk step reached `Collision · first.obj`
+never appearing: holding `w` walks the player *away* from the models (spawn 13.5, 14.7 → 118.8, 132.2)
+instead of into them. Reproduced identically on the pre-merge `sandbox mode` commit in a throwaway
+worktree, so it is a bug in the sandbox walk spawn/heading, **not** merge damage. Everything before it
+passes — multi-import, the 20 m estimate, independent transforms, a real gizmo drag, the 2-polygon
+minimap, pointer lock. One real fix landed in the script itself: an **`async` `waitForFunction`
+predicate returns a promise, the in-page poller only tests it for truthiness, and the wait therefore
+resolves on the first tick regardless of what the predicate decides**. The R3F roots are now imported
+once up front and the predicate is synchronous. `check-placement.mjs` has the same latent bug in three
+places (lines 41, 65, 95) and has not been fixed.
+
+**Where it fails depends on the browser, so read the line number before diagnosing.** Under
+`chromium-headless-shell` it dies earlier, at line 75's `waitForFunction(() => !!document.pointerLockElement)`,
+because that build refuses pointer lock outright (`The root document of this element is not valid for
+pointer lock`). That is a harness limitation, not the sandbox bug above. Re-confirmed 2026-09-20 on a
+clean `origin/main` worktree: identical failure, same line, so neither symptom is merge damage. To see
+the real collision bug you need a browser that grants pointer lock.
 
 ## Conventions
 
