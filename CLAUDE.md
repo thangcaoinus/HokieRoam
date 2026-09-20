@@ -738,7 +738,27 @@ Three rules it encodes:
   vocabulary on screen. `check-free-import.mjs` is the standing guard, since the strip prints
   verdicts and IoU and that path may show neither.
 
-## Deployment (added 2026-09-20)
+## Deployment (added 2026-09-20) — LIVE
+
+| What | Where |
+| --- | --- |
+| Web | **https://hokieroam.vercel.app** (Vercel project `hokieroam`) |
+| API | **https://server-production-3689.up.railway.app** (Railway project `server`) |
+
+Verified 2026-09-20 06:2x by driving the live site: `?example=burruss-noir` reaches Explore, the
+rail reports way/32963472 · 59.4k tris · rejected · 70.4 %, the style strip renders all seven, and
+there are **no page errors**. `curl -H 'Origin: https://hokieroam.vercel.app' .../v1/health` returns
+the matching `access-control-allow-origin` and `{"provider":"meshy","live":true}`.
+
+Railway state: volume at `/data`, `PIPELINE_DATA_DIR=/data`, `PIPELINE_MAX_SUBMISSIONS=20`,
+`PIPELINE_CORS_ORIGINS` listing the Vercel origin plus localhost. The hosted ledger starts at
+`submissions_used: 0` — it is a **different** ledger from `server/.data`, so the local count of 16
+does not travel and the cap of 20 is counted from zero.
+
+**To disarm the hosted key after the demo:** `railway variable delete MESHY_API_KEY` drops health to
+`live: false` without tearing anything down. Anyone with the API URL can otherwise spend credits;
+there is no auth, and the cap is the only hard stop.
+
 
 Two services. The front end is static and the cached examples need no backend at all; the backend
 exists only so a **new** generation can be run from the hosted page.
