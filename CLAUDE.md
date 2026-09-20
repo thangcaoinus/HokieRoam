@@ -719,6 +719,25 @@ the real collision bug you need a browser that grants pointer lock.
   **The product is named HokieRoam**, not Groundtruth — the topbar, the page title and the export
   filenames all say so, and older documents that say Groundtruth are stale.
 
+**Example picker, 2026-09-20.** `web/src/components/ExamplePicker.tsx` switches between the seven
+cached examples, because `?example=<id>` typed by hand is not a demo. Two variants from one
+component: a ruled `gallery` under the Ingest entry button, and a `strip` in the Explore toolbar that
+swaps the loaded example **without leaving the scene** — that strip is the pitch's comparison beat.
+
+Three rules it encodes:
+
+- **Verdict and IoU are read from each example's own `example.json`** via `exampleSummaries()`
+  (module-cached, same-origin, static — safe on the offline path). They are never declared in the
+  source. Only the style *label* lives in `EXAMPLE_POSTERS`, because a label is not a measurement.
+  This repo already shipped the bug where a duplicated title and photo filename went stale.
+- **`EXAMPLE_IDS` is ordered by descending IoU on purpose** (73.1 · 70.6 · 70.4 · 69.9 · 59.6). The
+  picker renders in that order so the column reads as the comparison it is.
+- **The strip renders only when `s.example` is set.** Importing a model clears it
+  (`IngestStage.tsx`), and `store.invalidate` clears it for any mesh without an `exampleId`. Verified
+  by driving it: strip present on a cached example, absent after a free import, with no scoring
+  vocabulary on screen. `check-free-import.mjs` is the standing guard, since the strip prints
+  verdicts and IoU and that path may show neither.
+
 ## Fixed on 2026-09-20 while staging the seven examples
 
 Three real defects, all found by wiring the new examples up and looking rather than by a test:

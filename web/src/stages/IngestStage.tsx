@@ -5,6 +5,7 @@ import { registerBucket, resolveAddress } from '../lib/geo'
 import { samplePhoto } from '../lib/redesign'
 import MapView from '../components/MapView'
 import { EXAMPLE_PATH, EXAMPLE_SOURCE, EXAMPLE_TITLE, loadCompletedExample } from '../lib/cachedExample'
+import ExamplePicker from '../components/ExamplePicker'
 import { MAX_VIEWS } from '../lib/api'
 
 const SUGGESTIONS = ['Newman Library, Blacksburg, VA', 'Burruss Hall, Blacksburg, VA', 'Flatiron Building, New York', 'Nebraska State Capitol, Lincoln']
@@ -72,6 +73,9 @@ export default function IngestStage() {
             try { await loadCompletedExample() } catch (e) { setError((e as Error).message) }
             finally { setExampleBusy(false) }
           }}>{exampleBusy ? 'Loading…' : 'Load completed real example'}</button>
+          {/* Or pick any of them. Five of these are the same building and the same footprint under
+              different prompts, so their IoUs sit in one column to be compared. */}
+          <ExamplePicker variant="gallery" />
         </div>
 
         <div className="entry">

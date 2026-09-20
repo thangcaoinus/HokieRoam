@@ -9,6 +9,7 @@ import { pointInPolygon, unproject, type V2, type GeoResult } from '../lib/geo'
 import type { WalkModel } from '../lib/sandbox'
 import { derivedScene, placementScene, type ScenePlacement } from '../lib/placement'
 import DerivedScene from '../components/DerivedScene'
+import ExamplePicker from '../components/ExamplePicker'
 import { PlacedAsset } from '../components/PlacedScene'
 import PlacedScene from '../components/PlacedScene'
 import type { MeshAsset } from '../lib/reconstruct'
@@ -487,6 +488,8 @@ export default function ExploreStage() {
         <button className="btn sm" onClick={() => { document.exitPointerLock(); setCamera((n) => n + 1) }}>Reset camera</button>
         <button className="btn sm" onClick={() => { document.exitPointerLock(); s.go('fit') }}>Inspect / export</button>
       </div>
+      {/* Only for a cached example: offering to switch would otherwise throw away a real job. */}
+      {s.example && <ExamplePicker variant="strip" />}
       <div className="dimmer" style={{ marginTop: 6 }}>{!s.placement
         ? `Outline derived from the model · no geographic anchor · size ${s.derived?.scaleProvenance === 'user-declared' ? 'user-declared' : 'as authored in the file'}`
         : <>Heading unverified · {s.placement.height === 'inferred' ? 'height inferred from the mesh' : `height ${s.placement.request.measured_height_m?.toFixed(1)} m from the ${s.placement.provenance.source.toUpperCase()} record`}{s.placement.plan_fit === 'rejected' ? ' · Inspection only: this placement fails the fit constraints.' : ''}</>}</div>

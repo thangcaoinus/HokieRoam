@@ -5,8 +5,10 @@ import { placementMatches } from './placement'
 import { loadMeshUrl } from './reconstruct'
 
 /** Example ids that ship as static artifacts under web/public/examples/<id>/. */
+/** Burruss styles are listed by descending IoU on purpose: the picker renders them in this order,
+ *  so the column reads as the comparison it is — the destructive prompt costs the most fidelity. */
 export const EXAMPLE_IDS = [
-  'burruss', 'burruss-scorched', 'burruss-noir', 'burruss-fantasy', 'burruss-solarpunk',
+  'burruss', 'burruss-solarpunk', 'burruss-noir', 'burruss-fantasy', 'burruss-scorched',
   'gilbert-scorched', 'dds',
 ] as const
 export type ExampleId = (typeof EXAMPLE_IDS)[number]
@@ -25,15 +27,35 @@ export const EXAMPLE_PATH = examplePath(DEFAULT_EXAMPLE)
  * renders before that file is read. Switching the default example means updating the row here
  * too; the DDS→Burruss switch did not, and shipped a broken <img> and the wrong building's name.
  */
-export const EXAMPLE_POSTERS: Record<ExampleId, { title: string; photo: string }> = {
-  burruss: { title: 'Burruss Hall', photo: 'source.jpg' },
-  // The same building and the same photograph, restyled by prompt alone.
-  'burruss-scorched': { title: 'Burruss Hall', photo: 'source.jpg' },
-  'burruss-noir': { title: 'Burruss Hall', photo: 'source.jpg' },
-  'burruss-fantasy': { title: 'Burruss Hall', photo: 'source.jpg' },
-  'burruss-solarpunk': { title: 'Burruss Hall', photo: 'source.jpg' },
-  'gilbert-scorched': { title: 'Gilbert Place', photo: 'source.jpg' },
-  dds: { title: 'the Data and Decision Sciences Building', photo: 'source.png' },
+export const EXAMPLE_POSTERS: Record<ExampleId, {
+  title: string; photo: string
+  /** The style's display name. A label, not a measurement — verdict and IoU are never copied
+   *  here; the picker reads those from each example's own manifest so they cannot drift. */
+  style: string
+}> = {
+  burruss: { title: 'Burruss Hall', photo: 'source.jpg', style: 'Medieval ruin' },
+  // The same building and the same four photographs, restyled by prompt alone.
+  'burruss-noir': { title: 'Burruss Hall', photo: 'source.jpg', style: 'Neon Noir' },
+  'burruss-fantasy': { title: 'Burruss Hall', photo: 'source.jpg', style: 'Enchanted Citadel' },
+  'burruss-solarpunk': { title: 'Burruss Hall', photo: 'source.jpg', style: 'Solarpunk Bloom' },
+  'burruss-scorched': { title: 'Burruss Hall', photo: 'source.jpg', style: 'Scorched Nebraska' },
+  'gilbert-scorched': { title: 'Gilbert Place', photo: 'source.jpg', style: 'Scorched Nebraska' },
+  dds: { title: 'the Data and Decision Sciences Building', photo: 'source.png', style: 'Glass retrofit' },
+}
+
+/**
+ * Verdict and IoU for the picker, read from each example's shipped manifest rather than declared
+ * here. Same origin, static files, no API and no GIS — safe on the offline demo path. Cached at
+ * module scope so switching styles does not refetch.
+ */
+export interface ExampleSummary { id: ExampleId; verdict: string; iou: number }
+let summaries: Promise<ExampleSummary[]> | null = null
+export function exampleSummaries(): Promise<ExampleSummary[]> {
+  summaries ??= Promise.all(EXAMPLE_IDS.map(async (id): Promise<ExampleSummary> => {
+    const meta = await (await fetch(`${examplePath(id)}/example.json`)).json()
+    return { id, verdict: meta.placement.plan_fit, iou: meta.placement.selected.metrics.iou }
+  }))
+  return summaries
 }
 export const EXAMPLE_TITLE = EXAMPLE_POSTERS[DEFAULT_EXAMPLE].title
 export const EXAMPLE_SOURCE = EXAMPLE_POSTERS[DEFAULT_EXAMPLE].photo
