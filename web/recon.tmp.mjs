@@ -1,0 +1,12 @@
+import { chromium } from 'playwright-core'
+const b = await chromium.launch({ channel: 'chromium-headless-shell', args:['--enable-unsafe-swiftshader'] })
+const p = await (await b.newContext({ viewport: { width: 1500, height: 950 }, deviceScaleFactor: 1 })).newPage()
+const errs = []; p.on('pageerror', e => errs.push(e.message))
+await p.goto('http://localhost:5174/', { waitUntil: 'networkidle' })
+await p.waitForTimeout(2500)
+console.log('title:', await p.title())
+console.log('rail entries:', await p.locator('.step .step-title').allInnerTexts())
+console.log('buttons on ingest:', (await p.locator('button').allInnerTexts()).map(s=>s.trim().replace(/\n/g,' ')).filter(Boolean).slice(0,14))
+await p.screenshot({ path: '/tmp/recon-ingest.png', fullPage: true })
+console.log('errors:', errs.length ? errs : 'none')
+await b.close()
